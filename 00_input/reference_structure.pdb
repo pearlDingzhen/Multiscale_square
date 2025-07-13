@@ -1,0 +1,10 @@
+# This should be the PDB file of a single, folded monomer
+# corresponding to the protein sequence.
+# It is used by restraint_generator.py to create plumed.dat.
+#
+# Please provide a valid PDB file here. This is a placeholder.
+ATOM      1  N   MET A   1      27.256  34.462  23.235  1.00  0.00           N
+ATOM      2  CA  MET A   1      27.834  35.795  23.363  1.00  0.00           C
+ATOM      3  C   MET A   1      26.868  36.756  23.979  1.00  0.00           C
+ATOM      4  O   MET A   1      25.879  36.339  24.499  1.00  0.00           O
+END

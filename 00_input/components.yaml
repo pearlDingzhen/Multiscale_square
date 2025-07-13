@@ -1,0 +1,10 @@
+# CALVADOS components file
+defaults:
+  fresidues: 'calvados/data/residues.csv' # Path relative to package
+  molecule_type: protein
+  restraint: False
+
+system:
+  protein:
+    ffasta: '00_input/protein.fasta'
+    nmol: 20
