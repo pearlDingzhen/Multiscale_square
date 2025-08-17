@@ -1,0 +1,59 @@
+# ============================================================================
+# MDP (Membrane-Disrupting Peptides) 任务配置文件
+# ============================================================================
+
+# [ 输入文件配置 ]
+# ----------------------------------------------------------------------------
+input_files:
+  structure_pdb: "TDP43.pdb"  # 蛋白质结构文件
+
+# [ 蛋白质配置 ]
+# ----------------------------------------------------------------------------
+protein:
+  name: "TDP43"          # PDB文件名（不含.pdb扩展名）
+  nmol: 15               # 蛋白质分子数量
+
+# [ Stage 1: 粗粒化 CALVADOS 模拟 ]
+# ----------------------------------------------------------------------------
+cg_calvados:
+  # 任务类型: MDP
+  task_type: "MDP"
+  
+  # 基本参数
+  platform: "CUDA"
+  temp: 310.0
+  box: [10.0, 10.0, 40.0]
+  steps: 5000000   # 50M步模拟
+  wfreq: 50000      # 每50000步输出一次
+  logfreq: 1000
+  sysname: "mdp_sim"
+  eps_lj: 0.2
+  ionic: 0.15
+  pH: 7.5
+  restart: null
+  frestart: "restart.chk"
+  topol: "slab"
+  slab_width: 40    # slab拓扑的中央高密度区域厚度(nm) - MDP任务通常需要更厚的slab
+  
+  # MDP任务特定参数
+  fdomains: "domains.yaml"  # 蛋白质结构域定义文件
+  # 使用CALVADOS3的residues文件
+  # components.yaml将由prepare.py自动生成
+
+# [ 后续阶段配置 ]
+# ----------------------------------------------------------------------------
+backmapping:
+  # 待实现
+  pass
+
+openmm_refinement:
+  # 待实现
+  pass
+
+gromacs_aa:
+  # 待实现
+  pass
+
+aa_simulation:
+  # 待实现
+  pass

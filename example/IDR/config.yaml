@@ -1,0 +1,58 @@
+# ============================================================================
+# IDR (Intrinsically Disordered Regions) 任务配置文件
+# ============================================================================
+
+# [ 输入文件配置 ]
+# ----------------------------------------------------------------------------
+input_files:
+  sequence_fasta: "protein.fasta"  # 蛋白质序列文件
+
+# [ 蛋白质配置 ]
+# ----------------------------------------------------------------------------
+protein:
+  name: "FUS_LC"        # 从FASTA文件中选择的序列名称
+  nmol: 20              # 蛋白质分子数量
+
+# [ Stage 1: 粗粒化 CALVADOS 模拟 ]
+# ----------------------------------------------------------------------------
+cg_calvados:
+  # 任务类型: IDR
+  task_type: "IDR"
+  
+  # 基本参数
+  platform: "CUDA"
+  temp: 310.0
+  box: [10.0, 10.0, 40.0]
+  steps: 10000000  # 100k步模拟
+  wfreq: 10000    # 每1000步输出一次
+  logfreq: 10000
+  sysname: "idr_sim"
+  eps_lj: 0.2
+  ionic: 0.15
+  pH: 7.0
+  restart: null
+  frestart: "restart.chk"
+  topol: "slab"
+  slab_width: 20  # slab拓扑的中央高密度区域厚度(nm)
+  
+  # IDR任务特定参数
+  # 使用CALVADOS2的residues文件
+  # components.yaml将由prepare.py自动生成
+
+# [ 后续阶段配置 ]
+# ----------------------------------------------------------------------------
+backmapping:
+  # 待实现
+  pass
+
+openmm_refinement:
+  # 待实现
+  pass
+
+gromacs_aa:
+  # 待实现
+  pass
+
+aa_simulation:
+  # 待实现
+  pass
