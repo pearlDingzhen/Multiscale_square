@@ -7,16 +7,16 @@
 ```
 example/
 ├── README.md                    # 本说明文件
-└── IDR/                        # IDR任务示例
-    ├── config.yaml             # IDR配置文件
+└── IDP/                        # IDP任务示例
+    ├── config.yaml             # IDP配置文件
     ├── protein.fasta           # 蛋白质序列文件
-    ├── run_example.py          # IDR运行脚本
-    └── USAGE.md                # IDR使用说明
+    ├── run_example.py          # IDP运行脚本
+    └── USAGE.md                # IDP使用说明
 ```
 
 ## 任务类型
 
-### IDR (Intrinsically Disordered Regions)
+### IDP (Intrinsically Disordered Proteins)
 - **用途**: 模拟内在无序蛋白质区域
 - **特点**: 使用CALVADOS2的residues文件
 - **配置**: 自动生成components.yaml文件
@@ -29,9 +29,9 @@ example/
 
 ## 快速开始
 
-### 运行IDR任务
+### 运行IDP任务
 ```bash
-cd example/IDR
+cd example/IDP
 conda activate cg2all
 export CUDA_VISIBLE_DEVICES=0
 python run_example.py
