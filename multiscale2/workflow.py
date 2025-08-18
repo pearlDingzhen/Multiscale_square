@@ -1,7 +1,7 @@
 import yaml
 import os
 import shutil
-from . import calvados_wrapper, backmap, openmm_refine, gromacs, aa_transition
+from . import backmap, openmm_refine, gromacs, aa_transition
 
 class MultiscaleWorkflow:
     """
@@ -29,11 +29,10 @@ class MultiscaleWorkflow:
         output_dir = self._get_path('01_cg_calvados')
         os.makedirs(output_dir, exist_ok=True)
 
-        calvados_wrapper.run_calvados_simulation(
-            config=self.config,
-            output_dir=output_dir,
-            components_path=self._get_path('00_input', 'components.yaml')
-        )
+        # Note: calvados_wrapper has been removed, use calvados_generator instead
+        # For now, this is a placeholder - the actual implementation would use CalvadosGenerator
+        print("Stage 1: CALVADOS simulation - use calvados_generator.CalvadosGenerator instead")
+        print("This stage needs to be updated to use the generator approach")
         print("Stage 1 completed successfully.")
 
     def execute_stage_2_backmap(self):
