@@ -1,0 +1,19 @@
+# Ignore these specific directories
+to_hanw/
+test_real_system/
+CTD/
+FUS/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore editor and system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+

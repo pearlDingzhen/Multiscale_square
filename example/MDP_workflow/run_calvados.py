@@ -68,7 +68,8 @@ def run_calvados_simulation():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # Import and initialize generator
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+    import multiscale2
+    sys.path.append(os.path.dirname(multiscale2.__path__[0]))
     from multiscale2.calvados_generator import CalvadosGenerator
     
     generator = CalvadosGenerator("config.yaml")

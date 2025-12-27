@@ -44,19 +44,33 @@ cg_calvados:
 # ----------------------------------------------------------------------------
 backmapping:
   box_resize:
-    enabled: true
+    enabled: False
     # New box dimensions [x, y, z] in nm (same unit as cg_calvados.box)
-    new_box_dimensions: [5.0, 5.0, 8.0]
+    new_box_dimensions: [10.0, 10.0, 40.0]
 
-# [ Subsequent stages ]
-# ----------------------------------------------------------------------------
 openmm_refinement:
-  # To be implemented
   pass
 
-gromacs_aa:
-  # To be implemented
-  pass
+
+# stage_3: build and equilibrate explicit solvent MD simulation
+gromacs_explicit_solvent_build_and_equilibration:
+  num_cpus: 24  # Total number of threads (for backward compatibility)
+  num_mpi_threads: 1  # Number of MPI threads
+  num_omp_threads: 24  # Number of OpenMP threads per MPI thread
+  gmx_excute: null # if null, MS2 will auto search and selecte the PATH. However, sometimes you can provide a double pricision gmx to minimize the structure
+  water_gro: "cg300water.gro"
+  ions_concentration: 0.15
+  temperature: 300.0
+  pressure: 1.0
+  Use_anti_freeze_water: True
+  Anti_free_water_ratio: 0.1
+  NVT: True 
+  NVT_steps: 1000000
+  NPT: True
+  NPT_steps: 1000000
+  constraints: null # null or hbonds
+  skip_equilibration: false # Set to true to skip NVT/NPT equilibration, only do minimization
+
 
 aa_simulation:
   # To be implemented

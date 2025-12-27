@@ -1,0 +1,25 @@
+define              =  
+constraints         =  none
+integrator          =  steep
+nsteps              =  50000
+lincs_iter          =  8
+emtol               =  2000
+emstep              =  0.01
+
+cutoff-scheme = Verlet
+nstlist             =  10
+ns_type             =  grid
+rlist               =  1.2
+coulombtype         =  reaction-field
+rcoulomb = 1.1
+epsilon_r           =  15
+vdwtype = Cut-off
+vdw_modifier=Force-switch
+rvdw                =  1.1
+rvdw_switch         =  0.9
+
+nstcomm             =  100
+table-extension     =  10
+Tcoupl              =  no
+Pcoupl              =  no
+gen_vel             =  no

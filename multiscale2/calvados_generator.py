@@ -332,7 +332,8 @@ components.write(path,name='components.yaml')
         residues_suffix = "3" if task_type == "MDP" else "2"
         residues_file_name = f'residues_CALVADOS{residues_suffix}.csv'
         
-        residues_src = os.path.join(os.path.dirname(__file__), 'calvados_data', residues_file_name)
+        import multiscale2
+        residues_src = os.path.join(multiscale2.__path__[0], 'calvados_data', residues_file_name)
         residues_dst = os.path.join(input_dir, residues_file_name)
         shutil.copy(residues_src, residues_dst)
         
