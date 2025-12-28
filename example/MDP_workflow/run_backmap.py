@@ -11,6 +11,16 @@ import glob
 import numpy as np
 import MDAnalysis as mda
 
+# Import required modules for backmapping functions
+import multiscale2
+sys.path.append(os.path.dirname(multiscale2.__path__[0]))
+from multiscale2.backmap import (
+    Backmapper, get_latest_pdb, get_protein_dimensions,
+    check_protein_fits_in_box, write_pdb_with_bfactors,
+    center_condensate, add_chain_ids, remove_ot2_atoms, add_ter_records,
+    write_cryst1_only, read_cryst1_dims
+)
+
 # ============================================================================
 # USER CONFIGURABLE VARIABLES
 # ============================================================================
@@ -121,15 +131,6 @@ def run_backmapping():
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
-    # Import required modules
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-    from multiscale2.backmap import (
-        Backmapper, get_latest_pdb, get_protein_dimensions,
-        check_protein_fits_in_box, write_pdb_with_bfactors,
-        center_condensate, add_chain_ids, enforce_xy_keep_z, 
-        write_cryst1_only, read_cryst1_dims
-    )
-    
     # Locate input CG PDB
     if CG_PDB_FILE == "LATEST":
         source_pdb_path = get_latest_pdb(input_dir)
@@ -203,10 +204,10 @@ def run_backmapping():
         write_pdb_with_bfactors(final_universe, resized_pdb_path)
         processed_pdb_path = resized_pdb_path
 
-        # Write CRYST1 with correct dimensions
-        final_dims = enforce_xy_keep_z(source_pdb_path, new_dims)
+        # Write CRYST1 with new dimensions (convert from nm to Angstroms)
+        final_dims_A = new_dims * 10.0  # Convert nm to Angstroms
         cryst1_fixed_path = os.path.join(output_dir, "cryst1_fixed.pdb")
-        write_cryst1_only(processed_pdb_path, cryst1_fixed_path, final_dims)
+        write_cryst1_only(processed_pdb_path, cryst1_fixed_path, final_dims_A)
         processed_pdb_path = cryst1_fixed_path
     
     # Determine tool configuration based on task type
@@ -249,10 +250,16 @@ def run_backmapping():
         print(f"Error during backmapping: {e}")
         sys.exit(1)
 
+    # Remove OT2 atoms from backmapped structure
+    cleaned_aa_pdb = os.path.join(output_dir, "backmapped_aa_cleaned.pdb")
+    remove_ot2_atoms(output_aa_pdb, cleaned_aa_pdb)
+    output_aa_pdb = cleaned_aa_pdb  # Use cleaned version for subsequent processing
+
     # Ensure AA PDB has correct CRYST1 and chain IDs
     print("Finalizing AA structure...")
     if BOX_RESIZE.get('enabled', False):
-        final_dims_used = enforce_xy_keep_z(source_pdb_path, new_dims)
+        # Convert from nm to Angstroms for final dimensions
+        final_dims_used = new_dims * 10.0
     else:
         u_src = mda.Universe(source_pdb_path)
         a, b, c = u_src.dimensions[:3]
@@ -264,9 +271,16 @@ def run_backmapping():
     if os.path.exists(components_path):
         aa_final_pdb = os.path.join(output_dir, "backmapped_aa_final.pdb")
         add_chain_ids(aa_box_pdb, aa_final_pdb, components_path)
-        final_output = aa_final_pdb
+        
+        # Add TER records to final structure
+        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        add_ter_records(aa_final_pdb, aa_final_with_ter)
+        final_output = aa_final_with_ter
     else:
-        final_output = aa_box_pdb
+        # Add TER records even if no chain IDs
+        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        add_ter_records(aa_box_pdb, aa_final_with_ter)
+        final_output = aa_final_with_ter
 
     print("="*60)
     print("Backmapping completed successfully!")

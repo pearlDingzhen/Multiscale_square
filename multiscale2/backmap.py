@@ -296,6 +296,112 @@ def read_cryst1_dims(pdb_path):
     return None, None, None
 
 
+def remove_ot2_atoms(input_pdb, output_pdb):
+    """
+    Remove OT2 atoms from PDB file while keeping OT1 atoms.
+    OT1 atoms are renamed to 'O' (standard PDB naming for terminal oxygen).
+    OT2 atoms typically appear at the end of each chain after backmapping.
+    """
+    print(f"--- Removing OT2 atoms and renaming OT1 from {os.path.basename(input_pdb)} ---")
+    
+    # Load universe
+    universe = mda.Universe(input_pdb)
+    
+    # Find all OT2 atoms
+    ot2_atoms = universe.select_atoms("name OT2")
+    print(f"  Found {len(ot2_atoms)} OT2 atoms to remove")
+    
+    # Find all OT1 atoms and rename them to 'O'
+    ot1_atoms = universe.select_atoms("name OT1")
+    print(f"  Found {len(ot1_atoms)} OT1 atoms to rename to 'O'")
+    
+    # Rename OT1 to O
+    for atom in ot1_atoms:
+        atom.name = 'O'
+    
+    # Select all atoms except OT2
+    non_ot2_atoms = universe.select_atoms("not name OT2")
+    
+    # Create a new universe with only non-OT2 atoms
+    # We need to create a temporary universe to write only selected atoms
+    with mda.Writer(output_pdb, multiframe=False) as writer:
+        writer.write(non_ot2_atoms)
+    
+    print(f"✓ OT2 atoms removed and OT1 renamed to O. Cleaned PDB saved to: {output_pdb}")
+    
+    return output_pdb
+
+
+def add_ter_records(input_pdb, output_pdb):
+    """
+    Add TER records at the end of each chain in a PDB file.
+    This manually processes the PDB file to add TER records after each chain's last atom.
+    """
+    print(f"--- Adding TER records to {os.path.basename(input_pdb)} ---")
+    
+    with open(input_pdb, 'r') as f:
+        lines = f.readlines()
+    
+    output_lines = []
+    current_chain = None
+    last_atom_line = None
+    atom_serial = 1
+    ter_count = 0
+    
+    for line in lines:
+        if line.startswith('ATOM'):
+            # Extract chain ID (column 22, 0-indexed column 21)
+            chain_id = line[21]
+            
+            # If we're switching to a new chain and had a previous chain, add TER
+            if current_chain is not None and chain_id != current_chain and last_atom_line is not None:
+                # Extract info from last atom line for TER record
+                resname = last_atom_line[17:20]
+                last_chain_id = last_atom_line[21]
+                resseq = last_atom_line[22:26]
+                icode = last_atom_line[26] if len(last_atom_line) > 26 else ' '
+                
+                # Create TER record
+                ter_line = f"TER   {atom_serial:5d}      {resname} {last_chain_id}{resseq}{icode}\n"
+                output_lines.append(ter_line)
+                atom_serial += 1
+                ter_count += 1
+            
+            current_chain = chain_id
+            last_atom_line = line
+            output_lines.append(line)
+            atom_serial += 1
+            
+        elif line.startswith('TER'):
+            # Skip existing TER records, we'll add our own
+            continue
+        elif line.startswith('END'):
+            # Before END, add final TER if we have a last atom
+            if last_atom_line is not None:
+                resname = last_atom_line[17:20]
+                chain_id = last_atom_line[21]
+                resseq = last_atom_line[22:26]
+                icode = last_atom_line[26] if len(last_atom_line) > 26 else ' '
+                
+                ter_line = f"TER   {atom_serial:5d}      {resname} {chain_id}{resseq}{icode}\n"
+                output_lines.append(ter_line)
+                ter_count += 1
+            
+            # Add END line
+            output_lines.append(line)
+        else:
+            # Copy other lines (HETATM, CRYST1, etc.) as-is
+            if not line.startswith('ATOM'):
+                output_lines.append(line)
+    
+    # Write output
+    with open(output_pdb, 'w') as f:
+        f.writelines(output_lines)
+    
+    print(f"✓ Added {ter_count} TER records. PDB with TER records saved to: {output_pdb}")
+    return output_pdb
+
+
 def write_cryst1_only(input_pdb, output_pdb, dims_abc):
     """Write PDB with specified CRYST1 dimensions using MDAnalysis."""
     a, b, c = dims_abc
@@ -303,31 +409,10 @@ def write_cryst1_only(input_pdb, output_pdb, dims_abc):
     # Load universe from input PDB
     universe = mda.Universe(input_pdb)
     
-    # Update dimensions (convert from Angstroms to nm for MDAnalysis)
-    dims_nm = np.array([a, b, c]) / 10.0
-    universe.dimensions = list(dims_nm) + [90, 90, 90]  # Add angles
+    # Update dimensions (MDAnalysis uses Angstroms)
+    universe.dimensions = list([a, b, c]) + [90, 90, 90]  # Add angles
     
     # Write PDB with updated dimensions
     write_pdb_with_bfactors(universe, output_pdb)
 
 
-def enforce_xy_keep_z(source_pdb, requested_dims):
-    """
-    Determine final box dims where X,Y are taken from source PDB dimensions,
-    and Z is taken from requested_dims[2]. Returns np.array([ax, ay, cz]).
-    """
-    req = np.array(requested_dims, dtype=float)
-    
-    # Load universe and get dimensions
-    u = mda.Universe(source_pdb)
-    dims = u.dimensions[:3]
-    
-    if dims is not None and dims[0] > 0 and dims[1] > 0:
-        # Use universe dimensions (in Angstroms)
-        final = np.array([dims[0], dims[1], req[2]], dtype=float)
-        return final
-    
-    # Fallback: compute bounding box extents
-    pos = u.atoms.positions
-    span = pos.max(axis=0) - pos.min(axis=0)
-    return np.array([span[0], span[1], req[2]], dtype=float)

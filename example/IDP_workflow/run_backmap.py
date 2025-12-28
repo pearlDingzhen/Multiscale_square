@@ -11,6 +11,14 @@ import glob
 import numpy as np
 import MDAnalysis as mda
 
+# Import required modules for backmapping functions
+from multiscale2.backmap import (
+    Backmapper, get_latest_pdb, get_protein_dimensions,
+    check_protein_fits_in_box, write_pdb_with_bfactors,
+    center_condensate, add_chain_ids, remove_ot2_atoms, add_ter_records,
+    write_cryst1_only, read_cryst1_dims
+)
+
 # ============================================================================
 # USER CONFIGURABLE VARIABLES
 # ============================================================================
@@ -78,13 +86,13 @@ def find_suitable_frame_from_trajectory(topology_pdb, trajectory_dcd, box_dims, 
     
     for i in range(n_frames - 1, start_frame - 1, -1):
         u.trajectory[i]
-        protein_dims = get_protein_dimensions(u)
-        if check_protein_fits_in_box(protein_dims, box_dims):
+        protein_dims = get_protein_dimensions(u)      # Angstroms
+        protein_dims_nm = protein_dims / 10.0         # Convert to nm
+        if check_protein_fits_in_box(protein_dims_nm, box_dims):
             suitable_frame_pdb = os.path.join(output_dir, f"suitable_frame_{i}.pdb")
             
-            # Set box dimensions (convert from Angstroms to nm)
-            box_dims_nm = np.array(box_dims) / 10.0
-            u.dimensions = list(box_dims_nm) + [90, 90, 90]
+            # Set box dimensions directly in nm
+            u.dimensions = list(box_dims) + [90, 90, 90]
             
             # Write PDB with correct dimensions
             write_pdb_with_bfactors(u, suitable_frame_pdb)
@@ -121,15 +129,6 @@ def run_backmapping():
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
-    # Import required modules
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-    from multiscale2.backmap import (
-        Backmapper, get_latest_pdb, get_protein_dimensions,
-        check_protein_fits_in_box, write_pdb_with_bfactors,
-        center_condensate, add_chain_ids, enforce_xy_keep_z, 
-        write_cryst1_only, read_cryst1_dims
-    )
-    
     # Locate input CG PDB
     if CG_PDB_FILE == "LATEST":
         source_pdb_path = get_latest_pdb(input_dir)
@@ -164,15 +163,19 @@ def run_backmapping():
     # Box resize if enabled
     if BOX_RESIZE.get('enabled', False):
         print("Validating structure against new box dimensions...")
-        new_dims = np.array(BOX_RESIZE.get('new_box_dimensions'))
+        # Prefer values from config.yaml if present
+        cfg_dims = backmap_config.get('box_resize', {}).get('new_box_dimensions') if backmap_config else None
+        new_dims = np.array(cfg_dims if cfg_dims is not None else BOX_RESIZE.get('new_box_dimensions'))
         
         u = mda.Universe(processed_pdb_path)
-        protein_dims = get_protein_dimensions(u)
-        print(f"Protein dimensions: {protein_dims}")
-        print(f"Target box dimensions: {new_dims}")
+        protein_dims = get_protein_dimensions(u)  # Angstroms
+        protein_dims_nm = protein_dims / 10.0      # Convert to nm
+        print(f"Protein dimensions (Angstroms): {protein_dims}")
+        print(f"Protein dimensions (nm): {protein_dims_nm}")
+        print(f"Target box dimensions (nm): {new_dims}")
 
-        if not check_protein_fits_in_box(protein_dims, new_dims):
-            print("Latest PDB does not fit in new box. Searching trajectory...")
+        if not check_protein_fits_in_box(protein_dims_nm, new_dims):
+            print("Protein dimensions exceed box size. Searching trajectory...")
             
             topology_file = os.path.join(input_dir, 'top.pdb')
             dcd_files = glob.glob(os.path.join(input_dir, '*.dcd'))
@@ -183,10 +186,12 @@ def run_backmapping():
                     topology_file, trajectory_file, new_dims, output_dir
                 )
                 if not processed_pdb_path:
-                    print("Failed to find suitable frame")
+                    print("No suitable frame found in trajectory.")
+                    print("Please modify BOX_RESIZE['new_box_dimensions'] in the script header, or set CG_PDB_FILE to a specific PDB filename.")
                     sys.exit(1)
             else:
                 print("Error: Topology or trajectory files not found")
+                print("Please modify BOX_RESIZE['new_box_dimensions'] in the script header, or set CG_PDB_FILE to a specific PDB filename.")
                 sys.exit(1)
         
         # Resize box
@@ -197,15 +202,16 @@ def run_backmapping():
         write_pdb_with_bfactors(final_universe, resized_pdb_path)
         processed_pdb_path = resized_pdb_path
 
-        # Write CRYST1 with correct dimensions
-        final_dims = enforce_xy_keep_z(source_pdb_path, new_dims)
+        # Write CRYST1 with new dimensions (convert from nm to Angstroms)
+        final_dims_A = new_dims * 10.0  # Convert nm to Angstroms
         cryst1_fixed_path = os.path.join(output_dir, "cryst1_fixed.pdb")
-        write_cryst1_only(processed_pdb_path, cryst1_fixed_path, final_dims)
+        write_cryst1_only(processed_pdb_path, cryst1_fixed_path, final_dims_A)
         processed_pdb_path = cryst1_fixed_path
     
     # Determine tool configuration based on task type
     config = load_config()
-    task_type = config.get('backmapping', {}).get('task_type', 'IDP')
+    # Prefer global task_type, fallback to legacy location
+    task_type = config.get('task_type', config.get('backmapping', {}).get('task_type', 'IDP'))
     
     if task_type == 'IDP':
         tool_config = {
@@ -242,10 +248,16 @@ def run_backmapping():
         print(f"Error during backmapping: {e}")
         sys.exit(1)
 
+    # Remove OT2 atoms from backmapped structure
+    cleaned_aa_pdb = os.path.join(output_dir, "backmapped_aa_cleaned.pdb")
+    remove_ot2_atoms(output_aa_pdb, cleaned_aa_pdb)
+    output_aa_pdb = cleaned_aa_pdb  # Use cleaned version for subsequent processing
+
     # Ensure AA PDB has correct CRYST1 and chain IDs
     print("Finalizing AA structure...")
     if BOX_RESIZE.get('enabled', False):
-        final_dims_used = enforce_xy_keep_z(source_pdb_path, new_dims)
+        # Convert from nm to Angstroms for final dimensions
+        final_dims_used = new_dims * 10.0
     else:
         u_src = mda.Universe(source_pdb_path)
         a, b, c = u_src.dimensions[:3]
@@ -257,9 +269,16 @@ def run_backmapping():
     if os.path.exists(components_path):
         aa_final_pdb = os.path.join(output_dir, "backmapped_aa_final.pdb")
         add_chain_ids(aa_box_pdb, aa_final_pdb, components_path)
-        final_output = aa_final_pdb
+        
+        # Add TER records to final structure
+        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        add_ter_records(aa_final_pdb, aa_final_with_ter)
+        final_output = aa_final_with_ter
     else:
-        final_output = aa_box_pdb
+        # Add TER records even if no chain IDs
+        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        add_ter_records(aa_box_pdb, aa_final_with_ter)
+        final_output = aa_final_with_ter
 
     print("="*60)
     print("Backmapping completed successfully!")
