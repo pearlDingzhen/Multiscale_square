@@ -342,11 +342,6 @@ def run_backmapping():
         print(f"Error during backmapping: {e}")
         sys.exit(1)
 
-    # Remove OT2 atoms from backmapped structure
-    cleaned_aa_pdb = os.path.join(output_dir, "backmapped_aa_cleaned.pdb")
-    remove_ot2_atoms(output_aa_pdb, cleaned_aa_pdb)
-    output_aa_pdb = cleaned_aa_pdb  # Use cleaned version for subsequent processing
-
     # Ensure AA PDB has correct CRYST1 and chain IDs
     print("完成AA结构处理...")
     if BOX_RESIZE.get('enabled', False):
@@ -364,19 +359,29 @@ def run_backmapping():
         aa_final_pdb = os.path.join(output_dir, "backmapped_aa_final.pdb")
         add_chain_ids(aa_box_pdb, aa_final_pdb, components_path)
         
-        # Add TER records to final structure
-        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
-        add_ter_records(aa_final_pdb, aa_final_with_ter)
-        final_output = aa_final_with_ter
+        # Add TER records to structure (save intermediate with OT2 atoms)
+        aa_final_with_ter_and_ot2 = os.path.join(output_dir, "backmapped_aa_final_with_OT2.pdb")
+        add_ter_records(aa_final_pdb, aa_final_with_ter_and_ot2)
+        print(f"Saved intermediate file with OT2 atoms: {aa_final_with_ter_and_ot2}")
+        
+        # Remove OT2 atoms to create final output
+        aa_final_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        remove_ot2_atoms(aa_final_with_ter_and_ot2, aa_final_ter)
+        final_output = aa_final_ter
     else:
-        # Add TER records even if no chain IDs
-        aa_final_with_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
-        add_ter_records(aa_box_pdb, aa_final_with_ter)
-        final_output = aa_final_with_ter
+        # Add TER records even if no chain IDs (save intermediate with OT2 atoms)
+        aa_final_with_ter_and_ot2 = os.path.join(output_dir, "backmapped_aa_final_with_OT2.pdb")
+        add_ter_records(aa_box_pdb, aa_final_with_ter_and_ot2)
+        print(f"Saved intermediate file with OT2 atoms: {aa_final_with_ter_and_ot2}")
+        
+        # Remove OT2 atoms to create final output
+        aa_final_ter = os.path.join(output_dir, "backmapped_aa_final_ter.pdb")
+        remove_ot2_atoms(aa_final_with_ter_and_ot2, aa_final_ter)
+        final_output = aa_final_ter
 
     print("="*60)
     print("Backmapping completed successfully!")
-    print(f"Final structure: {final_output}")
+    print(f"Final structure (without OT2): {final_output}")
     print("="*60)
 
 if __name__ == "__main__":

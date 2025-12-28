@@ -299,33 +299,35 @@ def read_cryst1_dims(pdb_path):
 def remove_ot2_atoms(input_pdb, output_pdb):
     """
     Remove OT2 atoms from PDB file while keeping OT1 atoms.
+    OT1 atoms are renamed to 'O' (standard PDB naming for terminal oxygen).
     OT2 atoms typically appear at the end of each chain after backmapping.
     """
-    print(f"--- Removing OT2 atoms from {os.path.basename(input_pdb)} ---")
+    print(f"--- Removing OT2 atoms and renaming OT1 from {os.path.basename(input_pdb)} ---")
     
     # Load universe
     universe = mda.Universe(input_pdb)
     
     # Find all OT2 atoms
     ot2_atoms = universe.select_atoms("name OT2")
+    print(f"  Found {len(ot2_atoms)} OT2 atoms to remove")
     
-    if len(ot2_atoms) > 0:
-        print(f"  Found {len(ot2_atoms)} OT2 atoms to remove")
-        
-        # Select all atoms except OT2
-        non_ot2_atoms = universe.select_atoms("not name OT2")
-        
-        # Create a new universe with only non-OT2 atoms
-        # We need to create a temporary universe to write only selected atoms
-        with mda.Writer(output_pdb, multiframe=False) as writer:
-            writer.write(non_ot2_atoms)
-        
-        print(f"✓ OT2 atoms removed. Cleaned PDB saved to: {output_pdb}")
-    else:
-        print("  No OT2 atoms found")
-        # Just copy the file if no OT2 atoms found
-        import shutil
-        shutil.copy2(input_pdb, output_pdb)
+    # Find all OT1 atoms and rename them to 'O'
+    ot1_atoms = universe.select_atoms("name OT1")
+    print(f"  Found {len(ot1_atoms)} OT1 atoms to rename to 'O'")
+    
+    # Rename OT1 to O
+    for atom in ot1_atoms:
+        atom.name = 'O'
+    
+    # Select all atoms except OT2
+    non_ot2_atoms = universe.select_atoms("not name OT2")
+    
+    # Create a new universe with only non-OT2 atoms
+    # We need to create a temporary universe to write only selected atoms
+    with mda.Writer(output_pdb, multiframe=False) as writer:
+        writer.write(non_ot2_atoms)
+    
+    print(f"✓ OT2 atoms removed and OT1 renamed to O. Cleaned PDB saved to: {output_pdb}")
     
     return output_pdb
 
