@@ -1,0 +1,17 @@
+# TDP43 SASA surface file template
+# 4 domains: 1-100, 150-250, 300-400, 450-500
+# Total length: 500 residues
+# 
+# Format: 1 value per line (nm²)
+# Ordered regions (domains) will be overwritten to 5.0
+# Disordered regions (linkers) keep these values
+#
+# Domain 1: 1-100 (ordered)
+# Linker 1: 101-149 (disordered)
+# Domain 2: 150-250 (ordered)
+# Linker 2: 251-299 (disordered)
+# Domain 3: 300-400 (ordered)
+# Linker 3: 401-449 (disordered)
+# Domain 4: 450-500 (ordered)
+
+# Example values for each residue (you can replace with actual SASA values)

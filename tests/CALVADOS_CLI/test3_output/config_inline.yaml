@@ -1,0 +1,30 @@
+
+system_name: TDP43_CTD_TDP43_SLAB
+box: [40, 40, 80]
+temperature: 293.0
+ionic: 0.15
+steps: 20000
+report_interval: 2000
+timestep: 0.01
+topol: slab
+
+components:
+  - name: TDP43
+    type: mdp
+    nmol: 50
+    fpdb: TDP43.pdb
+    ffasta: TDP43_CTD.fasta
+    restraint: true
+    fdomains: |
+      TDP43:
+        - [3, 76]
+        - [106, 176]
+        - [192, 260]
+        - [320, 334]
+        
+  - name: TDP43_CTD
+    type: idp
+    nmol: 50
+    ffasta: TDP43_CTD.fasta
+    charge_termini: both
+    restraint: false

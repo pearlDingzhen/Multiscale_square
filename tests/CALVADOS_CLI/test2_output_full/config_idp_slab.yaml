@@ -1,0 +1,19 @@
+box:
+- 25.0
+- 25.0
+- 60.0
+components:
+- charge_termini: both
+  ffasta: TDP43_CTD.fasta
+  name: TDP43_CTD
+  nmol: 50
+  type: IDP
+ionic: 0.15
+simulation:
+  platform: CUDA
+  steps: 200000
+  verbose: true
+  wfreq: 2000
+system_name: TDP43_CTD_slab
+temperature: 293.0
+topol: slab

@@ -1,0 +1,45 @@
+---
+# 三组分 SLAB 模拟配置
+system_name: THREE_COMP_SLAB
+
+# 盒子设置 (nm)
+box: [40, 40, 80]
+
+# 模拟参数
+temperature: 293.0
+ionic: 0.15  # 150 mM = 0.15 M
+steps: 20000
+report_interval: 2000
+timestep: 0.01
+
+# 拓扑类型: slab 或 cubic
+topol: slab
+
+# 组件定义
+components:
+  - name: TDP43_CTD
+    type: idp
+    nmol: 30
+    ffasta: TDP43_CTD.fasta
+    charge_termini: both
+    restraint: false
+
+  - name: FUS
+    type: idp
+    nmol: 30
+    ffasta: TDP43_CTD.fasta
+    charge_termini: both
+    restraint: false
+
+  - name: TDP43
+    type: mdp
+    nmol: 30
+    fpdb: TDP43.pdb
+    ffasta: TDP43_CTD.fasta
+    restraint: true
+    fdomains: |
+      TDP43:
+        - [3, 76]
+        - [106, 176]
+        - [192, 260]
+        - [320, 334]

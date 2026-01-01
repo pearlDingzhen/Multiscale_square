@@ -1,0 +1,39 @@
+defaults:
+  molecule_type: protein
+  nmol: 50
+  restraint: true
+  charge_termini: both
+  fresidues: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/multiscale2/extern/ms2_calvados/calvados/data/residues_CALVADOS3.csv
+  alpha: 0
+  kb: 8033.0
+  pdb_folder: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/tests/COCOMO_runner
+  periodic: false
+  cutoff_restr: 0.9
+  k_go: 15.0
+  use_com: true
+  colabfold: 0
+system:
+  TDP43:
+    name: TDP43
+    molecule_type: protein
+    nmol: 50
+    ffasta: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/tests/COCOMO_runner/TDP43_CTD.fasta
+    fdomains: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/tests/COCOMO_runner/output_test5/TDP43_CTD_TDP43_SLAB_CG/equilibration/raw/TDP43_domains.yaml
+    fpdb: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/tests/COCOMO_runner/TDP43.pdb
+    restraint: true
+    restraint_type: harmonic
+    use_com: true
+    k_harmonic: 10000.0
+    colabfold: 1
+    charge_termini: both
+  TDP43_CTD:
+    name: TDP43_CTD
+    molecule_type: protein
+    nmol: 50
+    ffasta: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/tests/COCOMO_runner/TDP43_CTD.fasta
+    restraint: false
+    restraint_type: harmonic
+    use_com: false
+    k_harmonic: 700.0
+    colabfold: 1
+    charge_termini: both

@@ -1,0 +1,1120 @@
+PSF CHEQ EXT XPLOR
+
+         1 !NTITLE
+
+
+       592 !NATOM
+         1 SYS      1        ASN      CA       CA       0.000000       12.0108           
+         2 SYS      2        ARG      CA       CA       0.000000       12.0108           
+         3 SYS      3        GLN      CA       CA       0.000000       12.0108           
+         4 SYS      4        LEU      CA       CA       0.000000       12.0108           
+         5 SYS      5        GLU      CA       CA       0.000000       12.0108           
+         6 SYS      6        ARG      CA       CA       0.000000       12.0108           
+         7 SYS      7        SER      CA       CA       0.000000       12.0108           
+         8 SYS      8        GLY      CA       CA       0.000000       12.0108           
+         9 SYS      9        ARG      CA       CA       0.000000       12.0108           
+        10 SYS      10       PHE      CA       CA       0.000000       12.0108           
+        11 SYS      11       GLY      CA       CA       0.000000       12.0108           
+        12 SYS      12       GLY      CA       CA       0.000000       12.0108           
+        13 SYS      13       ASN      CA       CA       0.000000       12.0108           
+        14 SYS      14       PRO      CA       CA       0.000000       12.0108           
+        15 SYS      15       GLY      CA       CA       0.000000       12.0108           
+        16 SYS      16       GLY      CA       CA       0.000000       12.0108           
+        17 SYS      17       PHE      CA       CA       0.000000       12.0108           
+        18 SYS      18       GLY      CA       CA       0.000000       12.0108           
+        19 SYS      19       ASN      CA       CA       0.000000       12.0108           
+        20 SYS      20       GLN      CA       CA       0.000000       12.0108           
+        21 SYS      21       GLY      CA       CA       0.000000       12.0108           
+        22 SYS      22       GLY      CA       CA       0.000000       12.0108           
+        23 SYS      23       PHE      CA       CA       0.000000       12.0108           
+        24 SYS      24       GLY      CA       CA       0.000000       12.0108           
+        25 SYS      25       ASN      CA       CA       0.000000       12.0108           
+        26 SYS      26       SER      CA       CA       0.000000       12.0108           
+        27 SYS      27       ARG      CA       CA       0.000000       12.0108           
+        28 SYS      28       GLY      CA       CA       0.000000       12.0108           
+        29 SYS      29       GLY      CA       CA       0.000000       12.0108           
+        30 SYS      30       GLY      CA       CA       0.000000       12.0108           
+        31 SYS      31       ALA      CA       CA       0.000000       12.0108           
+        32 SYS      32       GLY      CA       CA       0.000000       12.0108           
+        33 SYS      33       LEU      CA       CA       0.000000       12.0108           
+        34 SYS      34       GLY      CA       CA       0.000000       12.0108           
+        35 SYS      35       ASN      CA       CA       0.000000       12.0108           
+        36 SYS      36       ASN      CA       CA       0.000000       12.0108           
+        37 SYS      37       GLN      CA       CA       0.000000       12.0108           
+        38 SYS      38       GLY      CA       CA       0.000000       12.0108           
+        39 SYS      39       SER      CA       CA       0.000000       12.0108           
+        40 SYS      40       ASN      CA       CA       0.000000       12.0108           
+        41 SYS      41       MET      CA       CA       0.000000       12.0108           
+        42 SYS      42       GLY      CA       CA       0.000000       12.0108           
+        43 SYS      43       GLY      CA       CA       0.000000       12.0108           
+        44 SYS      44       GLY      CA       CA       0.000000       12.0108           
+        45 SYS      45       MET      CA       CA       0.000000       12.0108           
+        46 SYS      46       ASN      CA       CA       0.000000       12.0108           
+        47 SYS      47       PHE      CA       CA       0.000000       12.0108           
+        48 SYS      48       GLY      CA       CA       0.000000       12.0108           
+        49 SYS      49       ALA      CA       CA       0.000000       12.0108           
+        50 SYS      50       PHE      CA       CA       0.000000       12.0108           
+        51 SYS      51       SER      CA       CA       0.000000       12.0108           
+        52 SYS      52       ILE      CA       CA       0.000000       12.0108           
+        53 SYS      53       ASN      CA       CA       0.000000       12.0108           
+        54 SYS      54       PRO      CA       CA       0.000000       12.0108           
+        55 SYS      55       ALA      CA       CA       0.000000       12.0108           
+        56 SYS      56       MET      CA       CA       0.000000       12.0108           
+        57 SYS      57       MET      CA       CA       0.000000       12.0108           
+        58 SYS      58       ALA      CA       CA       0.000000       12.0108           
+        59 SYS      59       ALA      CA       CA       0.000000       12.0108           
+        60 SYS      60       ALA      CA       CA       0.000000       12.0108           
+        61 SYS      61       GLN      CA       CA       0.000000       12.0108           
+        62 SYS      62       ALA      CA       CA       0.000000       12.0108           
+        63 SYS      63       ALA      CA       CA       0.000000       12.0108           
+        64 SYS      64       LEU      CA       CA       0.000000       12.0108           
+        65 SYS      65       GLN      CA       CA       0.000000       12.0108           
+        66 SYS      66       SER      CA       CA       0.000000       12.0108           
+        67 SYS      67       SER      CA       CA       0.000000       12.0108           
+        68 SYS      68       TRP      CA       CA       0.000000       12.0108           
+        69 SYS      69       GLY      CA       CA       0.000000       12.0108           
+        70 SYS      70       MET      CA       CA       0.000000       12.0108           
+        71 SYS      71       MET      CA       CA       0.000000       12.0108           
+        72 SYS      72       GLY      CA       CA       0.000000       12.0108           
+        73 SYS      73       MET      CA       CA       0.000000       12.0108           
+        74 SYS      74       LEU      CA       CA       0.000000       12.0108           
+        75 SYS      75       ALA      CA       CA       0.000000       12.0108           
+        76 SYS      76       SER      CA       CA       0.000000       12.0108           
+        77 SYS      77       GLN      CA       CA       0.000000       12.0108           
+        78 SYS      78       GLN      CA       CA       0.000000       12.0108           
+        79 SYS      79       ASN      CA       CA       0.000000       12.0108           
+        80 SYS      80       GLN      CA       CA       0.000000       12.0108           
+        81 SYS      81       SER      CA       CA       0.000000       12.0108           
+        82 SYS      82       GLY      CA       CA       0.000000       12.0108           
+        83 SYS      83       PRO      CA       CA       0.000000       12.0108           
+        84 SYS      84       SER      CA       CA       0.000000       12.0108           
+        85 SYS      85       GLY      CA       CA       0.000000       12.0108           
+        86 SYS      86       ASN      CA       CA       0.000000       12.0108           
+        87 SYS      87       ASN      CA       CA       0.000000       12.0108           
+        88 SYS      88       GLN      CA       CA       0.000000       12.0108           
+        89 SYS      89       ASN      CA       CA       0.000000       12.0108           
+        90 SYS      90       GLN      CA       CA       0.000000       12.0108           
+        91 SYS      91       GLY      CA       CA       0.000000       12.0108           
+        92 SYS      92       ASN      CA       CA       0.000000       12.0108           
+        93 SYS      93       MET      CA       CA       0.000000       12.0108           
+        94 SYS      94       GLN      CA       CA       0.000000       12.0108           
+        95 SYS      95       ARG      CA       CA       0.000000       12.0108           
+        96 SYS      96       GLU      CA       CA       0.000000       12.0108           
+        97 SYS      97       PRO      CA       CA       0.000000       12.0108           
+        98 SYS      98       ASN      CA       CA       0.000000       12.0108           
+        99 SYS      99       GLN      CA       CA       0.000000       12.0108           
+       100 SYS      100      ALA      CA       CA       0.000000       12.0108           
+       101 SYS      101      PHE      CA       CA       0.000000       12.0108           
+       102 SYS      102      GLY      CA       CA       0.000000       12.0108           
+       103 SYS      103      SER      CA       CA       0.000000       12.0108           
+       104 SYS      104      GLY      CA       CA       0.000000       12.0108           
+       105 SYS      105      ASN      CA       CA       0.000000       12.0108           
+       106 SYS      106      ASN      CA       CA       0.000000       12.0108           
+       107 SYS      107      SER      CA       CA       0.000000       12.0108           
+       108 SYS      108      TYR      CA       CA       0.000000       12.0108           
+       109 SYS      109      SER      CA       CA       0.000000       12.0108           
+       110 SYS      110      GLY      CA       CA       0.000000       12.0108           
+       111 SYS      111      SER      CA       CA       0.000000       12.0108           
+       112 SYS      112      ASN      CA       CA       0.000000       12.0108           
+       113 SYS      113      SER      CA       CA       0.000000       12.0108           
+       114 SYS      114      GLY      CA       CA       0.000000       12.0108           
+       115 SYS      115      ALA      CA       CA       0.000000       12.0108           
+       116 SYS      116      ALA      CA       CA       0.000000       12.0108           
+       117 SYS      117      ILE      CA       CA       0.000000       12.0108           
+       118 SYS      118      GLY      CA       CA       0.000000       12.0108           
+       119 SYS      119      TRP      CA       CA       0.000000       12.0108           
+       120 SYS      120      GLY      CA       CA       0.000000       12.0108           
+       121 SYS      121      SER      CA       CA       0.000000       12.0108           
+       122 SYS      122      ALA      CA       CA       0.000000       12.0108           
+       123 SYS      123      SER      CA       CA       0.000000       12.0108           
+       124 SYS      124      ASN      CA       CA       0.000000       12.0108           
+       125 SYS      125      ALA      CA       CA       0.000000       12.0108           
+       126 SYS      126      GLY      CA       CA       0.000000       12.0108           
+       127 SYS      127      SER      CA       CA       0.000000       12.0108           
+       128 SYS      128      GLY      CA       CA       0.000000       12.0108           
+       129 SYS      129      SER      CA       CA       0.000000       12.0108           
+       130 SYS      130      GLY      CA       CA       0.000000       12.0108           
+       131 SYS      131      PHE      CA       CA       0.000000       12.0108           
+       132 SYS      132      ASN      CA       CA       0.000000       12.0108           
+       133 SYS      133      GLY      CA       CA       0.000000       12.0108           
+       134 SYS      134      GLY      CA       CA       0.000000       12.0108           
+       135 SYS      135      PHE      CA       CA       0.000000       12.0108           
+       136 SYS      136      GLY      CA       CA       0.000000       12.0108           
+       137 SYS      137      SER      CA       CA       0.000000       12.0108           
+       138 SYS      138      SER      CA       CA       0.000000       12.0108           
+       139 SYS      139      MET      CA       CA       0.000000       12.0108           
+       140 SYS      140      ASP      CA       CA       0.000000       12.0108           
+       141 SYS      141      SER      CA       CA       0.000000       12.0108           
+       142 SYS      142      LYS      CA       CA       0.000000       12.0108           
+       143 SYS      143      SER      CA       CA       0.000000       12.0108           
+       144 SYS      144      SER      CA       CA       0.000000       12.0108           
+       145 SYS      145      GLY      CA       CA       0.000000       12.0108           
+       146 SYS      146      TRP      CA       CA       0.000000       12.0108           
+       147 SYS      147      GLY      CA       CA       0.000000       12.0108           
+       148 SYS      148      MET      CA       CA       0.000000       12.0108           
+       149 SYS      149      ASN      CA       CA       0.000000       12.0108           
+       150 SYS      150      ARG      CA       CA       0.000000       12.0108           
+       151 SYS      151      GLN      CA       CA       0.000000       12.0108           
+       152 SYS      152      LEU      CA       CA       0.000000       12.0108           
+       153 SYS      153      GLU      CA       CA       0.000000       12.0108           
+       154 SYS      154      ARG      CA       CA       0.000000       12.0108           
+       155 SYS      155      SER      CA       CA       0.000000       12.0108           
+       156 SYS      156      GLY      CA       CA       0.000000       12.0108           
+       157 SYS      157      ARG      CA       CA       0.000000       12.0108           
+       158 SYS      158      PHE      CA       CA       0.000000       12.0108           
+       159 SYS      159      GLY      CA       CA       0.000000       12.0108           
+       160 SYS      160      GLY      CA       CA       0.000000       12.0108           
+       161 SYS      161      ASN      CA       CA       0.000000       12.0108           
+       162 SYS      162      PRO      CA       CA       0.000000       12.0108           
+       163 SYS      163      GLY      CA       CA       0.000000       12.0108           
+       164 SYS      164      GLY      CA       CA       0.000000       12.0108           
+       165 SYS      165      PHE      CA       CA       0.000000       12.0108           
+       166 SYS      166      GLY      CA       CA       0.000000       12.0108           
+       167 SYS      167      ASN      CA       CA       0.000000       12.0108           
+       168 SYS      168      GLN      CA       CA       0.000000       12.0108           
+       169 SYS      169      GLY      CA       CA       0.000000       12.0108           
+       170 SYS      170      GLY      CA       CA       0.000000       12.0108           
+       171 SYS      171      PHE      CA       CA       0.000000       12.0108           
+       172 SYS      172      GLY      CA       CA       0.000000       12.0108           
+       173 SYS      173      ASN      CA       CA       0.000000       12.0108           
+       174 SYS      174      SER      CA       CA       0.000000       12.0108           
+       175 SYS      175      ARG      CA       CA       0.000000       12.0108           
+       176 SYS      176      GLY      CA       CA       0.000000       12.0108           
+       177 SYS      177      GLY      CA       CA       0.000000       12.0108           
+       178 SYS      178      GLY      CA       CA       0.000000       12.0108           
+       179 SYS      179      ALA      CA       CA       0.000000       12.0108           
+       180 SYS      180      GLY      CA       CA       0.000000       12.0108           
+       181 SYS      181      LEU      CA       CA       0.000000       12.0108           
+       182 SYS      182      GLY      CA       CA       0.000000       12.0108           
+       183 SYS      183      ASN      CA       CA       0.000000       12.0108           
+       184 SYS      184      ASN      CA       CA       0.000000       12.0108           
+       185 SYS      185      GLN      CA       CA       0.000000       12.0108           
+       186 SYS      186      GLY      CA       CA       0.000000       12.0108           
+       187 SYS      187      SER      CA       CA       0.000000       12.0108           
+       188 SYS      188      ASN      CA       CA       0.000000       12.0108           
+       189 SYS      189      MET      CA       CA       0.000000       12.0108           
+       190 SYS      190      GLY      CA       CA       0.000000       12.0108           
+       191 SYS      191      GLY      CA       CA       0.000000       12.0108           
+       192 SYS      192      GLY      CA       CA       0.000000       12.0108           
+       193 SYS      193      MET      CA       CA       0.000000       12.0108           
+       194 SYS      194      ASN      CA       CA       0.000000       12.0108           
+       195 SYS      195      PHE      CA       CA       0.000000       12.0108           
+       196 SYS      196      GLY      CA       CA       0.000000       12.0108           
+       197 SYS      197      ALA      CA       CA       0.000000       12.0108           
+       198 SYS      198      PHE      CA       CA       0.000000       12.0108           
+       199 SYS      199      SER      CA       CA       0.000000       12.0108           
+       200 SYS      200      ILE      CA       CA       0.000000       12.0108           
+       201 SYS      201      ASN      CA       CA       0.000000       12.0108           
+       202 SYS      202      PRO      CA       CA       0.000000       12.0108           
+       203 SYS      203      ALA      CA       CA       0.000000       12.0108           
+       204 SYS      204      MET      CA       CA       0.000000       12.0108           
+       205 SYS      205      MET      CA       CA       0.000000       12.0108           
+       206 SYS      206      ALA      CA       CA       0.000000       12.0108           
+       207 SYS      207      ALA      CA       CA       0.000000       12.0108           
+       208 SYS      208      ALA      CA       CA       0.000000       12.0108           
+       209 SYS      209      GLN      CA       CA       0.000000       12.0108           
+       210 SYS      210      ALA      CA       CA       0.000000       12.0108           
+       211 SYS      211      ALA      CA       CA       0.000000       12.0108           
+       212 SYS      212      LEU      CA       CA       0.000000       12.0108           
+       213 SYS      213      GLN      CA       CA       0.000000       12.0108           
+       214 SYS      214      SER      CA       CA       0.000000       12.0108           
+       215 SYS      215      SER      CA       CA       0.000000       12.0108           
+       216 SYS      216      TRP      CA       CA       0.000000       12.0108           
+       217 SYS      217      GLY      CA       CA       0.000000       12.0108           
+       218 SYS      218      MET      CA       CA       0.000000       12.0108           
+       219 SYS      219      MET      CA       CA       0.000000       12.0108           
+       220 SYS      220      GLY      CA       CA       0.000000       12.0108           
+       221 SYS      221      MET      CA       CA       0.000000       12.0108           
+       222 SYS      222      LEU      CA       CA       0.000000       12.0108           
+       223 SYS      223      ALA      CA       CA       0.000000       12.0108           
+       224 SYS      224      SER      CA       CA       0.000000       12.0108           
+       225 SYS      225      GLN      CA       CA       0.000000       12.0108           
+       226 SYS      226      GLN      CA       CA       0.000000       12.0108           
+       227 SYS      227      ASN      CA       CA       0.000000       12.0108           
+       228 SYS      228      GLN      CA       CA       0.000000       12.0108           
+       229 SYS      229      SER      CA       CA       0.000000       12.0108           
+       230 SYS      230      GLY      CA       CA       0.000000       12.0108           
+       231 SYS      231      PRO      CA       CA       0.000000       12.0108           
+       232 SYS      232      SER      CA       CA       0.000000       12.0108           
+       233 SYS      233      GLY      CA       CA       0.000000       12.0108           
+       234 SYS      234      ASN      CA       CA       0.000000       12.0108           
+       235 SYS      235      ASN      CA       CA       0.000000       12.0108           
+       236 SYS      236      GLN      CA       CA       0.000000       12.0108           
+       237 SYS      237      ASN      CA       CA       0.000000       12.0108           
+       238 SYS      238      GLN      CA       CA       0.000000       12.0108           
+       239 SYS      239      GLY      CA       CA       0.000000       12.0108           
+       240 SYS      240      ASN      CA       CA       0.000000       12.0108           
+       241 SYS      241      MET      CA       CA       0.000000       12.0108           
+       242 SYS      242      GLN      CA       CA       0.000000       12.0108           
+       243 SYS      243      ARG      CA       CA       0.000000       12.0108           
+       244 SYS      244      GLU      CA       CA       0.000000       12.0108           
+       245 SYS      245      PRO      CA       CA       0.000000       12.0108           
+       246 SYS      246      ASN      CA       CA       0.000000       12.0108           
+       247 SYS      247      GLN      CA       CA       0.000000       12.0108           
+       248 SYS      248      ALA      CA       CA       0.000000       12.0108           
+       249 SYS      249      PHE      CA       CA       0.000000       12.0108           
+       250 SYS      250      GLY      CA       CA       0.000000       12.0108           
+       251 SYS      251      SER      CA       CA       0.000000       12.0108           
+       252 SYS      252      GLY      CA       CA       0.000000       12.0108           
+       253 SYS      253      ASN      CA       CA       0.000000       12.0108           
+       254 SYS      254      ASN      CA       CA       0.000000       12.0108           
+       255 SYS      255      SER      CA       CA       0.000000       12.0108           
+       256 SYS      256      TYR      CA       CA       0.000000       12.0108           
+       257 SYS      257      SER      CA       CA       0.000000       12.0108           
+       258 SYS      258      GLY      CA       CA       0.000000       12.0108           
+       259 SYS      259      SER      CA       CA       0.000000       12.0108           
+       260 SYS      260      ASN      CA       CA       0.000000       12.0108           
+       261 SYS      261      SER      CA       CA       0.000000       12.0108           
+       262 SYS      262      GLY      CA       CA       0.000000       12.0108           
+       263 SYS      263      ALA      CA       CA       0.000000       12.0108           
+       264 SYS      264      ALA      CA       CA       0.000000       12.0108           
+       265 SYS      265      ILE      CA       CA       0.000000       12.0108           
+       266 SYS      266      GLY      CA       CA       0.000000       12.0108           
+       267 SYS      267      TRP      CA       CA       0.000000       12.0108           
+       268 SYS      268      GLY      CA       CA       0.000000       12.0108           
+       269 SYS      269      SER      CA       CA       0.000000       12.0108           
+       270 SYS      270      ALA      CA       CA       0.000000       12.0108           
+       271 SYS      271      SER      CA       CA       0.000000       12.0108           
+       272 SYS      272      ASN      CA       CA       0.000000       12.0108           
+       273 SYS      273      ALA      CA       CA       0.000000       12.0108           
+       274 SYS      274      GLY      CA       CA       0.000000       12.0108           
+       275 SYS      275      SER      CA       CA       0.000000       12.0108           
+       276 SYS      276      GLY      CA       CA       0.000000       12.0108           
+       277 SYS      277      SER      CA       CA       0.000000       12.0108           
+       278 SYS      278      GLY      CA       CA       0.000000       12.0108           
+       279 SYS      279      PHE      CA       CA       0.000000       12.0108           
+       280 SYS      280      ASN      CA       CA       0.000000       12.0108           
+       281 SYS      281      GLY      CA       CA       0.000000       12.0108           
+       282 SYS      282      GLY      CA       CA       0.000000       12.0108           
+       283 SYS      283      PHE      CA       CA       0.000000       12.0108           
+       284 SYS      284      GLY      CA       CA       0.000000       12.0108           
+       285 SYS      285      SER      CA       CA       0.000000       12.0108           
+       286 SYS      286      SER      CA       CA       0.000000       12.0108           
+       287 SYS      287      MET      CA       CA       0.000000       12.0108           
+       288 SYS      288      ASP      CA       CA       0.000000       12.0108           
+       289 SYS      289      SER      CA       CA       0.000000       12.0108           
+       290 SYS      290      LYS      CA       CA       0.000000       12.0108           
+       291 SYS      291      SER      CA       CA       0.000000       12.0108           
+       292 SYS      292      SER      CA       CA       0.000000       12.0108           
+       293 SYS      293      GLY      CA       CA       0.000000       12.0108           
+       294 SYS      294      TRP      CA       CA       0.000000       12.0108           
+       295 SYS      295      GLY      CA       CA       0.000000       12.0108           
+       296 SYS      296      MET      CA       CA       0.000000       12.0108           
+       297 SYS      297      ASN      CA       CA       0.000000       12.0108           
+       298 SYS      298      ARG      CA       CA       0.000000       12.0108           
+       299 SYS      299      GLN      CA       CA       0.000000       12.0108           
+       300 SYS      300      LEU      CA       CA       0.000000       12.0108           
+       301 SYS      301      GLU      CA       CA       0.000000       12.0108           
+       302 SYS      302      ARG      CA       CA       0.000000       12.0108           
+       303 SYS      303      SER      CA       CA       0.000000       12.0108           
+       304 SYS      304      GLY      CA       CA       0.000000       12.0108           
+       305 SYS      305      ARG      CA       CA       0.000000       12.0108           
+       306 SYS      306      PHE      CA       CA       0.000000       12.0108           
+       307 SYS      307      GLY      CA       CA       0.000000       12.0108           
+       308 SYS      308      GLY      CA       CA       0.000000       12.0108           
+       309 SYS      309      ASN      CA       CA       0.000000       12.0108           
+       310 SYS      310      PRO      CA       CA       0.000000       12.0108           
+       311 SYS      311      GLY      CA       CA       0.000000       12.0108           
+       312 SYS      312      GLY      CA       CA       0.000000       12.0108           
+       313 SYS      313      PHE      CA       CA       0.000000       12.0108           
+       314 SYS      314      GLY      CA       CA       0.000000       12.0108           
+       315 SYS      315      ASN      CA       CA       0.000000       12.0108           
+       316 SYS      316      GLN      CA       CA       0.000000       12.0108           
+       317 SYS      317      GLY      CA       CA       0.000000       12.0108           
+       318 SYS      318      GLY      CA       CA       0.000000       12.0108           
+       319 SYS      319      PHE      CA       CA       0.000000       12.0108           
+       320 SYS      320      GLY      CA       CA       0.000000       12.0108           
+       321 SYS      321      ASN      CA       CA       0.000000       12.0108           
+       322 SYS      322      SER      CA       CA       0.000000       12.0108           
+       323 SYS      323      ARG      CA       CA       0.000000       12.0108           
+       324 SYS      324      GLY      CA       CA       0.000000       12.0108           
+       325 SYS      325      GLY      CA       CA       0.000000       12.0108           
+       326 SYS      326      GLY      CA       CA       0.000000       12.0108           
+       327 SYS      327      ALA      CA       CA       0.000000       12.0108           
+       328 SYS      328      GLY      CA       CA       0.000000       12.0108           
+       329 SYS      329      LEU      CA       CA       0.000000       12.0108           
+       330 SYS      330      GLY      CA       CA       0.000000       12.0108           
+       331 SYS      331      ASN      CA       CA       0.000000       12.0108           
+       332 SYS      332      ASN      CA       CA       0.000000       12.0108           
+       333 SYS      333      GLN      CA       CA       0.000000       12.0108           
+       334 SYS      334      GLY      CA       CA       0.000000       12.0108           
+       335 SYS      335      SER      CA       CA       0.000000       12.0108           
+       336 SYS      336      ASN      CA       CA       0.000000       12.0108           
+       337 SYS      337      MET      CA       CA       0.000000       12.0108           
+       338 SYS      338      GLY      CA       CA       0.000000       12.0108           
+       339 SYS      339      GLY      CA       CA       0.000000       12.0108           
+       340 SYS      340      GLY      CA       CA       0.000000       12.0108           
+       341 SYS      341      MET      CA       CA       0.000000       12.0108           
+       342 SYS      342      ASN      CA       CA       0.000000       12.0108           
+       343 SYS      343      PHE      CA       CA       0.000000       12.0108           
+       344 SYS      344      GLY      CA       CA       0.000000       12.0108           
+       345 SYS      345      ALA      CA       CA       0.000000       12.0108           
+       346 SYS      346      PHE      CA       CA       0.000000       12.0108           
+       347 SYS      347      SER      CA       CA       0.000000       12.0108           
+       348 SYS      348      ILE      CA       CA       0.000000       12.0108           
+       349 SYS      349      ASN      CA       CA       0.000000       12.0108           
+       350 SYS      350      PRO      CA       CA       0.000000       12.0108           
+       351 SYS      351      ALA      CA       CA       0.000000       12.0108           
+       352 SYS      352      MET      CA       CA       0.000000       12.0108           
+       353 SYS      353      MET      CA       CA       0.000000       12.0108           
+       354 SYS      354      ALA      CA       CA       0.000000       12.0108           
+       355 SYS      355      ALA      CA       CA       0.000000       12.0108           
+       356 SYS      356      ALA      CA       CA       0.000000       12.0108           
+       357 SYS      357      GLN      CA       CA       0.000000       12.0108           
+       358 SYS      358      ALA      CA       CA       0.000000       12.0108           
+       359 SYS      359      ALA      CA       CA       0.000000       12.0108           
+       360 SYS      360      LEU      CA       CA       0.000000       12.0108           
+       361 SYS      361      GLN      CA       CA       0.000000       12.0108           
+       362 SYS      362      SER      CA       CA       0.000000       12.0108           
+       363 SYS      363      SER      CA       CA       0.000000       12.0108           
+       364 SYS      364      TRP      CA       CA       0.000000       12.0108           
+       365 SYS      365      GLY      CA       CA       0.000000       12.0108           
+       366 SYS      366      MET      CA       CA       0.000000       12.0108           
+       367 SYS      367      MET      CA       CA       0.000000       12.0108           
+       368 SYS      368      GLY      CA       CA       0.000000       12.0108           
+       369 SYS      369      MET      CA       CA       0.000000       12.0108           
+       370 SYS      370      LEU      CA       CA       0.000000       12.0108           
+       371 SYS      371      ALA      CA       CA       0.000000       12.0108           
+       372 SYS      372      SER      CA       CA       0.000000       12.0108           
+       373 SYS      373      GLN      CA       CA       0.000000       12.0108           
+       374 SYS      374      GLN      CA       CA       0.000000       12.0108           
+       375 SYS      375      ASN      CA       CA       0.000000       12.0108           
+       376 SYS      376      GLN      CA       CA       0.000000       12.0108           
+       377 SYS      377      SER      CA       CA       0.000000       12.0108           
+       378 SYS      378      GLY      CA       CA       0.000000       12.0108           
+       379 SYS      379      PRO      CA       CA       0.000000       12.0108           
+       380 SYS      380      SER      CA       CA       0.000000       12.0108           
+       381 SYS      381      GLY      CA       CA       0.000000       12.0108           
+       382 SYS      382      ASN      CA       CA       0.000000       12.0108           
+       383 SYS      383      ASN      CA       CA       0.000000       12.0108           
+       384 SYS      384      GLN      CA       CA       0.000000       12.0108           
+       385 SYS      385      ASN      CA       CA       0.000000       12.0108           
+       386 SYS      386      GLN      CA       CA       0.000000       12.0108           
+       387 SYS      387      GLY      CA       CA       0.000000       12.0108           
+       388 SYS      388      ASN      CA       CA       0.000000       12.0108           
+       389 SYS      389      MET      CA       CA       0.000000       12.0108           
+       390 SYS      390      GLN      CA       CA       0.000000       12.0108           
+       391 SYS      391      ARG      CA       CA       0.000000       12.0108           
+       392 SYS      392      GLU      CA       CA       0.000000       12.0108           
+       393 SYS      393      PRO      CA       CA       0.000000       12.0108           
+       394 SYS      394      ASN      CA       CA       0.000000       12.0108           
+       395 SYS      395      GLN      CA       CA       0.000000       12.0108           
+       396 SYS      396      ALA      CA       CA       0.000000       12.0108           
+       397 SYS      397      PHE      CA       CA       0.000000       12.0108           
+       398 SYS      398      GLY      CA       CA       0.000000       12.0108           
+       399 SYS      399      SER      CA       CA       0.000000       12.0108           
+       400 SYS      400      GLY      CA       CA       0.000000       12.0108           
+       401 SYS      401      ASN      CA       CA       0.000000       12.0108           
+       402 SYS      402      ASN      CA       CA       0.000000       12.0108           
+       403 SYS      403      SER      CA       CA       0.000000       12.0108           
+       404 SYS      404      TYR      CA       CA       0.000000       12.0108           
+       405 SYS      405      SER      CA       CA       0.000000       12.0108           
+       406 SYS      406      GLY      CA       CA       0.000000       12.0108           
+       407 SYS      407      SER      CA       CA       0.000000       12.0108           
+       408 SYS      408      ASN      CA       CA       0.000000       12.0108           
+       409 SYS      409      SER      CA       CA       0.000000       12.0108           
+       410 SYS      410      GLY      CA       CA       0.000000       12.0108           
+       411 SYS      411      ALA      CA       CA       0.000000       12.0108           
+       412 SYS      412      ALA      CA       CA       0.000000       12.0108           
+       413 SYS      413      ILE      CA       CA       0.000000       12.0108           
+       414 SYS      414      GLY      CA       CA       0.000000       12.0108           
+       415 SYS      415      TRP      CA       CA       0.000000       12.0108           
+       416 SYS      416      GLY      CA       CA       0.000000       12.0108           
+       417 SYS      417      SER      CA       CA       0.000000       12.0108           
+       418 SYS      418      ALA      CA       CA       0.000000       12.0108           
+       419 SYS      419      SER      CA       CA       0.000000       12.0108           
+       420 SYS      420      ASN      CA       CA       0.000000       12.0108           
+       421 SYS      421      ALA      CA       CA       0.000000       12.0108           
+       422 SYS      422      GLY      CA       CA       0.000000       12.0108           
+       423 SYS      423      SER      CA       CA       0.000000       12.0108           
+       424 SYS      424      GLY      CA       CA       0.000000       12.0108           
+       425 SYS      425      SER      CA       CA       0.000000       12.0108           
+       426 SYS      426      GLY      CA       CA       0.000000       12.0108           
+       427 SYS      427      PHE      CA       CA       0.000000       12.0108           
+       428 SYS      428      ASN      CA       CA       0.000000       12.0108           
+       429 SYS      429      GLY      CA       CA       0.000000       12.0108           
+       430 SYS      430      GLY      CA       CA       0.000000       12.0108           
+       431 SYS      431      PHE      CA       CA       0.000000       12.0108           
+       432 SYS      432      GLY      CA       CA       0.000000       12.0108           
+       433 SYS      433      SER      CA       CA       0.000000       12.0108           
+       434 SYS      434      SER      CA       CA       0.000000       12.0108           
+       435 SYS      435      MET      CA       CA       0.000000       12.0108           
+       436 SYS      436      ASP      CA       CA       0.000000       12.0108           
+       437 SYS      437      SER      CA       CA       0.000000       12.0108           
+       438 SYS      438      LYS      CA       CA       0.000000       12.0108           
+       439 SYS      439      SER      CA       CA       0.000000       12.0108           
+       440 SYS      440      SER      CA       CA       0.000000       12.0108           
+       441 SYS      441      GLY      CA       CA       0.000000       12.0108           
+       442 SYS      442      TRP      CA       CA       0.000000       12.0108           
+       443 SYS      443      GLY      CA       CA       0.000000       12.0108           
+       444 SYS      444      MET      CA       CA       0.000000       12.0108           
+       445 SYS      445      ASN      CA       CA       0.000000       12.0108           
+       446 SYS      446      ARG      CA       CA       0.000000       12.0108           
+       447 SYS      447      GLN      CA       CA       0.000000       12.0108           
+       448 SYS      448      LEU      CA       CA       0.000000       12.0108           
+       449 SYS      449      GLU      CA       CA       0.000000       12.0108           
+       450 SYS      450      ARG      CA       CA       0.000000       12.0108           
+       451 SYS      451      SER      CA       CA       0.000000       12.0108           
+       452 SYS      452      GLY      CA       CA       0.000000       12.0108           
+       453 SYS      453      ARG      CA       CA       0.000000       12.0108           
+       454 SYS      454      PHE      CA       CA       0.000000       12.0108           
+       455 SYS      455      GLY      CA       CA       0.000000       12.0108           
+       456 SYS      456      GLY      CA       CA       0.000000       12.0108           
+       457 SYS      457      ASN      CA       CA       0.000000       12.0108           
+       458 SYS      458      PRO      CA       CA       0.000000       12.0108           
+       459 SYS      459      GLY      CA       CA       0.000000       12.0108           
+       460 SYS      460      GLY      CA       CA       0.000000       12.0108           
+       461 SYS      461      PHE      CA       CA       0.000000       12.0108           
+       462 SYS      462      GLY      CA       CA       0.000000       12.0108           
+       463 SYS      463      ASN      CA       CA       0.000000       12.0108           
+       464 SYS      464      GLN      CA       CA       0.000000       12.0108           
+       465 SYS      465      GLY      CA       CA       0.000000       12.0108           
+       466 SYS      466      GLY      CA       CA       0.000000       12.0108           
+       467 SYS      467      PHE      CA       CA       0.000000       12.0108           
+       468 SYS      468      GLY      CA       CA       0.000000       12.0108           
+       469 SYS      469      ASN      CA       CA       0.000000       12.0108           
+       470 SYS      470      SER      CA       CA       0.000000       12.0108           
+       471 SYS      471      ARG      CA       CA       0.000000       12.0108           
+       472 SYS      472      GLY      CA       CA       0.000000       12.0108           
+       473 SYS      473      GLY      CA       CA       0.000000       12.0108           
+       474 SYS      474      GLY      CA       CA       0.000000       12.0108           
+       475 SYS      475      ALA      CA       CA       0.000000       12.0108           
+       476 SYS      476      GLY      CA       CA       0.000000       12.0108           
+       477 SYS      477      LEU      CA       CA       0.000000       12.0108           
+       478 SYS      478      GLY      CA       CA       0.000000       12.0108           
+       479 SYS      479      ASN      CA       CA       0.000000       12.0108           
+       480 SYS      480      ASN      CA       CA       0.000000       12.0108           
+       481 SYS      481      GLN      CA       CA       0.000000       12.0108           
+       482 SYS      482      GLY      CA       CA       0.000000       12.0108           
+       483 SYS      483      SER      CA       CA       0.000000       12.0108           
+       484 SYS      484      ASN      CA       CA       0.000000       12.0108           
+       485 SYS      485      MET      CA       CA       0.000000       12.0108           
+       486 SYS      486      GLY      CA       CA       0.000000       12.0108           
+       487 SYS      487      GLY      CA       CA       0.000000       12.0108           
+       488 SYS      488      GLY      CA       CA       0.000000       12.0108           
+       489 SYS      489      MET      CA       CA       0.000000       12.0108           
+       490 SYS      490      ASN      CA       CA       0.000000       12.0108           
+       491 SYS      491      PHE      CA       CA       0.000000       12.0108           
+       492 SYS      492      GLY      CA       CA       0.000000       12.0108           
+       493 SYS      493      ALA      CA       CA       0.000000       12.0108           
+       494 SYS      494      PHE      CA       CA       0.000000       12.0108           
+       495 SYS      495      SER      CA       CA       0.000000       12.0108           
+       496 SYS      496      ILE      CA       CA       0.000000       12.0108           
+       497 SYS      497      ASN      CA       CA       0.000000       12.0108           
+       498 SYS      498      PRO      CA       CA       0.000000       12.0108           
+       499 SYS      499      ALA      CA       CA       0.000000       12.0108           
+       500 SYS      500      MET      CA       CA       0.000000       12.0108           
+       501 SYS      501      MET      CA       CA       0.000000       12.0108           
+       502 SYS      502      ALA      CA       CA       0.000000       12.0108           
+       503 SYS      503      ALA      CA       CA       0.000000       12.0108           
+       504 SYS      504      ALA      CA       CA       0.000000       12.0108           
+       505 SYS      505      GLN      CA       CA       0.000000       12.0108           
+       506 SYS      506      ALA      CA       CA       0.000000       12.0108           
+       507 SYS      507      ALA      CA       CA       0.000000       12.0108           
+       508 SYS      508      LEU      CA       CA       0.000000       12.0108           
+       509 SYS      509      GLN      CA       CA       0.000000       12.0108           
+       510 SYS      510      SER      CA       CA       0.000000       12.0108           
+       511 SYS      511      SER      CA       CA       0.000000       12.0108           
+       512 SYS      512      TRP      CA       CA       0.000000       12.0108           
+       513 SYS      513      GLY      CA       CA       0.000000       12.0108           
+       514 SYS      514      MET      CA       CA       0.000000       12.0108           
+       515 SYS      515      MET      CA       CA       0.000000       12.0108           
+       516 SYS      516      GLY      CA       CA       0.000000       12.0108           
+       517 SYS      517      MET      CA       CA       0.000000       12.0108           
+       518 SYS      518      LEU      CA       CA       0.000000       12.0108           
+       519 SYS      519      ALA      CA       CA       0.000000       12.0108           
+       520 SYS      520      SER      CA       CA       0.000000       12.0108           
+       521 SYS      521      GLN      CA       CA       0.000000       12.0108           
+       522 SYS      522      GLN      CA       CA       0.000000       12.0108           
+       523 SYS      523      ASN      CA       CA       0.000000       12.0108           
+       524 SYS      524      GLN      CA       CA       0.000000       12.0108           
+       525 SYS      525      SER      CA       CA       0.000000       12.0108           
+       526 SYS      526      GLY      CA       CA       0.000000       12.0108           
+       527 SYS      527      PRO      CA       CA       0.000000       12.0108           
+       528 SYS      528      SER      CA       CA       0.000000       12.0108           
+       529 SYS      529      GLY      CA       CA       0.000000       12.0108           
+       530 SYS      530      ASN      CA       CA       0.000000       12.0108           
+       531 SYS      531      ASN      CA       CA       0.000000       12.0108           
+       532 SYS      532      GLN      CA       CA       0.000000       12.0108           
+       533 SYS      533      ASN      CA       CA       0.000000       12.0108           
+       534 SYS      534      GLN      CA       CA       0.000000       12.0108           
+       535 SYS      535      GLY      CA       CA       0.000000       12.0108           
+       536 SYS      536      ASN      CA       CA       0.000000       12.0108           
+       537 SYS      537      MET      CA       CA       0.000000       12.0108           
+       538 SYS      538      GLN      CA       CA       0.000000       12.0108           
+       539 SYS      539      ARG      CA       CA       0.000000       12.0108           
+       540 SYS      540      GLU      CA       CA       0.000000       12.0108           
+       541 SYS      541      PRO      CA       CA       0.000000       12.0108           
+       542 SYS      542      ASN      CA       CA       0.000000       12.0108           
+       543 SYS      543      GLN      CA       CA       0.000000       12.0108           
+       544 SYS      544      ALA      CA       CA       0.000000       12.0108           
+       545 SYS      545      PHE      CA       CA       0.000000       12.0108           
+       546 SYS      546      GLY      CA       CA       0.000000       12.0108           
+       547 SYS      547      SER      CA       CA       0.000000       12.0108           
+       548 SYS      548      GLY      CA       CA       0.000000       12.0108           
+       549 SYS      549      ASN      CA       CA       0.000000       12.0108           
+       550 SYS      550      ASN      CA       CA       0.000000       12.0108           
+       551 SYS      551      SER      CA       CA       0.000000       12.0108           
+       552 SYS      552      TYR      CA       CA       0.000000       12.0108           
+       553 SYS      553      SER      CA       CA       0.000000       12.0108           
+       554 SYS      554      GLY      CA       CA       0.000000       12.0108           
+       555 SYS      555      SER      CA       CA       0.000000       12.0108           
+       556 SYS      556      ASN      CA       CA       0.000000       12.0108           
+       557 SYS      557      SER      CA       CA       0.000000       12.0108           
+       558 SYS      558      GLY      CA       CA       0.000000       12.0108           
+       559 SYS      559      ALA      CA       CA       0.000000       12.0108           
+       560 SYS      560      ALA      CA       CA       0.000000       12.0108           
+       561 SYS      561      ILE      CA       CA       0.000000       12.0108           
+       562 SYS      562      GLY      CA       CA       0.000000       12.0108           
+       563 SYS      563      TRP      CA       CA       0.000000       12.0108           
+       564 SYS      564      GLY      CA       CA       0.000000       12.0108           
+       565 SYS      565      SER      CA       CA       0.000000       12.0108           
+       566 SYS      566      ALA      CA       CA       0.000000       12.0108           
+       567 SYS      567      SER      CA       CA       0.000000       12.0108           
+       568 SYS      568      ASN      CA       CA       0.000000       12.0108           
+       569 SYS      569      ALA      CA       CA       0.000000       12.0108           
+       570 SYS      570      GLY      CA       CA       0.000000       12.0108           
+       571 SYS      571      SER      CA       CA       0.000000       12.0108           
+       572 SYS      572      GLY      CA       CA       0.000000       12.0108           
+       573 SYS      573      SER      CA       CA       0.000000       12.0108           
+       574 SYS      574      GLY      CA       CA       0.000000       12.0108           
+       575 SYS      575      PHE      CA       CA       0.000000       12.0108           
+       576 SYS      576      ASN      CA       CA       0.000000       12.0108           
+       577 SYS      577      GLY      CA       CA       0.000000       12.0108           
+       578 SYS      578      GLY      CA       CA       0.000000       12.0108           
+       579 SYS      579      PHE      CA       CA       0.000000       12.0108           
+       580 SYS      580      GLY      CA       CA       0.000000       12.0108           
+       581 SYS      581      SER      CA       CA       0.000000       12.0108           
+       582 SYS      582      SER      CA       CA       0.000000       12.0108           
+       583 SYS      583      MET      CA       CA       0.000000       12.0108           
+       584 SYS      584      ASP      CA       CA       0.000000       12.0108           
+       585 SYS      585      SER      CA       CA       0.000000       12.0108           
+       586 SYS      586      LYS      CA       CA       0.000000       12.0108           
+       587 SYS      587      SER      CA       CA       0.000000       12.0108           
+       588 SYS      588      SER      CA       CA       0.000000       12.0108           
+       589 SYS      589      GLY      CA       CA       0.000000       12.0108           
+       590 SYS      590      TRP      CA       CA       0.000000       12.0108           
+       591 SYS      591      GLY      CA       CA       0.000000       12.0108           
+       592 SYS      592      MET      CA       CA       0.000000       12.0108           
+
+       588 !NBOND: bonds
+         1         2         2         3         3         4         4         5
+         5         6         6         7         7         8         8         9
+         9        10        10        11        11        12        12        13
+        13        14        14        15        15        16        16        17
+        17        18        18        19        19        20        20        21
+        21        22        22        23        23        24        24        25
+        25        26        26        27        27        28        28        29
+        29        30        30        31        31        32        32        33
+        33        34        34        35        35        36        36        37
+        37        38        38        39        39        40        40        41
+        41        42        42        43        43        44        44        45
+        45        46        46        47        47        48        48        49
+        49        50        50        51        51        52        52        53
+        53        54        54        55        55        56        56        57
+        57        58        58        59        59        60        60        61
+        61        62        62        63        63        64        64        65
+        65        66        66        67        67        68        68        69
+        69        70        70        71        71        72        72        73
+        73        74        74        75        75        76        76        77
+        77        78        78        79        79        80        80        81
+        81        82        82        83        83        84        84        85
+        85        86        86        87        87        88        88        89
+        89        90        90        91        91        92        92        93
+        93        94        94        95        95        96        96        97
+        97        98        98        99        99       100       100       101
+       101       102       102       103       103       104       104       105
+       105       106       106       107       107       108       108       109
+       109       110       110       111       111       112       112       113
+       113       114       114       115       115       116       116       117
+       117       118       118       119       119       120       120       121
+       121       122       122       123       123       124       124       125
+       125       126       126       127       127       128       128       129
+       129       130       130       131       131       132       132       133
+       133       134       134       135       135       136       136       137
+       137       138       138       139       139       140       140       141
+       141       142       142       143       143       144       144       145
+       145       146       146       147       147       148       149       150
+       150       151       151       152       152       153       153       154
+       154       155       155       156       156       157       157       158
+       158       159       159       160       160       161       161       162
+       162       163       163       164       164       165       165       166
+       166       167       167       168       168       169       169       170
+       170       171       171       172       172       173       173       174
+       174       175       175       176       176       177       177       178
+       178       179       179       180       180       181       181       182
+       182       183       183       184       184       185       185       186
+       186       187       187       188       188       189       189       190
+       190       191       191       192       192       193       193       194
+       194       195       195       196       196       197       197       198
+       198       199       199       200       200       201       201       202
+       202       203       203       204       204       205       205       206
+       206       207       207       208       208       209       209       210
+       210       211       211       212       212       213       213       214
+       214       215       215       216       216       217       217       218
+       218       219       219       220       220       221       221       222
+       222       223       223       224       224       225       225       226
+       226       227       227       228       228       229       229       230
+       230       231       231       232       232       233       233       234
+       234       235       235       236       236       237       237       238
+       238       239       239       240       240       241       241       242
+       242       243       243       244       244       245       245       246
+       246       247       247       248       248       249       249       250
+       250       251       251       252       252       253       253       254
+       254       255       255       256       256       257       257       258
+       258       259       259       260       260       261       261       262
+       262       263       263       264       264       265       265       266
+       266       267       267       268       268       269       269       270
+       270       271       271       272       272       273       273       274
+       274       275       275       276       276       277       277       278
+       278       279       279       280       280       281       281       282
+       282       283       283       284       284       285       285       286
+       286       287       287       288       288       289       289       290
+       290       291       291       292       292       293       293       294
+       294       295       295       296       297       298       298       299
+       299       300       300       301       301       302       302       303
+       303       304       304       305       305       306       306       307
+       307       308       308       309       309       310       310       311
+       311       312       312       313       313       314       314       315
+       315       316       316       317       317       318       318       319
+       319       320       320       321       321       322       322       323
+       323       324       324       325       325       326       326       327
+       327       328       328       329       329       330       330       331
+       331       332       332       333       333       334       334       335
+       335       336       336       337       337       338       338       339
+       339       340       340       341       341       342       342       343
+       343       344       344       345       345       346       346       347
+       347       348       348       349       349       350       350       351
+       351       352       352       353       353       354       354       355
+       355       356       356       357       357       358       358       359
+       359       360       360       361       361       362       362       363
+       363       364       364       365       365       366       366       367
+       367       368       368       369       369       370       370       371
+       371       372       372       373       373       374       374       375
+       375       376       376       377       377       378       378       379
+       379       380       380       381       381       382       382       383
+       383       384       384       385       385       386       386       387
+       387       388       388       389       389       390       390       391
+       391       392       392       393       393       394       394       395
+       395       396       396       397       397       398       398       399
+       399       400       400       401       401       402       402       403
+       403       404       404       405       405       406       406       407
+       407       408       408       409       409       410       410       411
+       411       412       412       413       413       414       414       415
+       415       416       416       417       417       418       418       419
+       419       420       420       421       421       422       422       423
+       423       424       424       425       425       426       426       427
+       427       428       428       429       429       430       430       431
+       431       432       432       433       433       434       434       435
+       435       436       436       437       437       438       438       439
+       439       440       440       441       441       442       442       443
+       443       444       445       446       446       447       447       448
+       448       449       449       450       450       451       451       452
+       452       453       453       454       454       455       455       456
+       456       457       457       458       458       459       459       460
+       460       461       461       462       462       463       463       464
+       464       465       465       466       466       467       467       468
+       468       469       469       470       470       471       471       472
+       472       473       473       474       474       475       475       476
+       476       477       477       478       478       479       479       480
+       480       481       481       482       482       483       483       484
+       484       485       485       486       486       487       487       488
+       488       489       489       490       490       491       491       492
+       492       493       493       494       494       495       495       496
+       496       497       497       498       498       499       499       500
+       500       501       501       502       502       503       503       504
+       504       505       505       506       506       507       507       508
+       508       509       509       510       510       511       511       512
+       512       513       513       514       514       515       515       516
+       516       517       517       518       518       519       519       520
+       520       521       521       522       522       523       523       524
+       524       525       525       526       526       527       527       528
+       528       529       529       530       530       531       531       532
+       532       533       533       534       534       535       535       536
+       536       537       537       538       538       539       539       540
+       540       541       541       542       542       543       543       544
+       544       545       545       546       546       547       547       548
+       548       549       549       550       550       551       551       552
+       552       553       553       554       554       555       555       556
+       556       557       557       558       558       559       559       560
+       560       561       561       562       562       563       563       564
+       564       565       565       566       566       567       567       568
+       568       569       569       570       570       571       571       572
+       572       573       573       574       574       575       575       576
+       576       577       577       578       578       579       579       580
+       580       581       581       582       582       583       583       584
+       584       585       585       586       586       587       587       588
+       588       589       589       590       590       591       591       592
+
+         0 !NTHETA: angles
+
+
+         0 !NPHI: dihedrals
+
+
+         0 !NIMPHI: impropers
+
+
+         0 !NDON: donors
+
+
+         0 !NACC: acceptors
+
+
+         0 !NNB
+
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0         0
+
+       592         0 !NGRP NST2
+         0         1         0         1         1         0         2         1         0
+         3         1         0         4         1         0         5         1         0
+         6         1         0         7         1         0         8         1         0
+         9         1         0        10         1         0        11         1         0
+        12         1         0        13         1         0        14         1         0
+        15         1         0        16         1         0        17         1         0
+        18         1         0        19         1         0        20         1         0
+        21         1         0        22         1         0        23         1         0
+        24         1         0        25         1         0        26         1         0
+        27         1         0        28         1         0        29         1         0
+        30         1         0        31         1         0        32         1         0
+        33         1         0        34         1         0        35         1         0
+        36         1         0        37         1         0        38         1         0
+        39         1         0        40         1         0        41         1         0
+        42         1         0        43         1         0        44         1         0
+        45         1         0        46         1         0        47         1         0
+        48         1         0        49         1         0        50         1         0
+        51         1         0        52         1         0        53         1         0
+        54         1         0        55         1         0        56         1         0
+        57         1         0        58         1         0        59         1         0
+        60         1         0        61         1         0        62         1         0
+        63         1         0        64         1         0        65         1         0
+        66         1         0        67         1         0        68         1         0
+        69         1         0        70         1         0        71         1         0
+        72         1         0        73         1         0        74         1         0
+        75         1         0        76         1         0        77         1         0
+        78         1         0        79         1         0        80         1         0
+        81         1         0        82         1         0        83         1         0
+        84         1         0        85         1         0        86         1         0
+        87         1         0        88         1         0        89         1         0
+        90         1         0        91         1         0        92         1         0
+        93         1         0        94         1         0        95         1         0
+        96         1         0        97         1         0        98         1         0
+        99         1         0       100         1         0       101         1         0
+       102         1         0       103         1         0       104         1         0
+       105         1         0       106         1         0       107         1         0
+       108         1         0       109         1         0       110         1         0
+       111         1         0       112         1         0       113         1         0
+       114         1         0       115         1         0       116         1         0
+       117         1         0       118         1         0       119         1         0
+       120         1         0       121         1         0       122         1         0
+       123         1         0       124         1         0       125         1         0
+       126         1         0       127         1         0       128         1         0
+       129         1         0       130         1         0       131         1         0
+       132         1         0       133         1         0       134         1         0
+       135         1         0       136         1         0       137         1         0
+       138         1         0       139         1         0       140         1         0
+       141         1         0       142         1         0       143         1         0
+       144         1         0       145         1         0       146         1         0
+       147         1         0       148         1         0       149         1         0
+       150         1         0       151         1         0       152         1         0
+       153         1         0       154         1         0       155         1         0
+       156         1         0       157         1         0       158         1         0
+       159         1         0       160         1         0       161         1         0
+       162         1         0       163         1         0       164         1         0
+       165         1         0       166         1         0       167         1         0
+       168         1         0       169         1         0       170         1         0
+       171         1         0       172         1         0       173         1         0
+       174         1         0       175         1         0       176         1         0
+       177         1         0       178         1         0       179         1         0
+       180         1         0       181         1         0       182         1         0
+       183         1         0       184         1         0       185         1         0
+       186         1         0       187         1         0       188         1         0
+       189         1         0       190         1         0       191         1         0
+       192         1         0       193         1         0       194         1         0
+       195         1         0       196         1         0       197         1         0
+       198         1         0       199         1         0       200         1         0
+       201         1         0       202         1         0       203         1         0
+       204         1         0       205         1         0       206         1         0
+       207         1         0       208         1         0       209         1         0
+       210         1         0       211         1         0       212         1         0
+       213         1         0       214         1         0       215         1         0
+       216         1         0       217         1         0       218         1         0
+       219         1         0       220         1         0       221         1         0
+       222         1         0       223         1         0       224         1         0
+       225         1         0       226         1         0       227         1         0
+       228         1         0       229         1         0       230         1         0
+       231         1         0       232         1         0       233         1         0
+       234         1         0       235         1         0       236         1         0
+       237         1         0       238         1         0       239         1         0
+       240         1         0       241         1         0       242         1         0
+       243         1         0       244         1         0       245         1         0
+       246         1         0       247         1         0       248         1         0
+       249         1         0       250         1         0       251         1         0
+       252         1         0       253         1         0       254         1         0
+       255         1         0       256         1         0       257         1         0
+       258         1         0       259         1         0       260         1         0
+       261         1         0       262         1         0       263         1         0
+       264         1         0       265         1         0       266         1         0
+       267         1         0       268         1         0       269         1         0
+       270         1         0       271         1         0       272         1         0
+       273         1         0       274         1         0       275         1         0
+       276         1         0       277         1         0       278         1         0
+       279         1         0       280         1         0       281         1         0
+       282         1         0       283         1         0       284         1         0
+       285         1         0       286         1         0       287         1         0
+       288         1         0       289         1         0       290         1         0
+       291         1         0       292         1         0       293         1         0
+       294         1         0       295         1         0       296         1         0
+       297         1         0       298         1         0       299         1         0
+       300         1         0       301         1         0       302         1         0
+       303         1         0       304         1         0       305         1         0
+       306         1         0       307         1         0       308         1         0
+       309         1         0       310         1         0       311         1         0
+       312         1         0       313         1         0       314         1         0
+       315         1         0       316         1         0       317         1         0
+       318         1         0       319         1         0       320         1         0
+       321         1         0       322         1         0       323         1         0
+       324         1         0       325         1         0       326         1         0
+       327         1         0       328         1         0       329         1         0
+       330         1         0       331         1         0       332         1         0
+       333         1         0       334         1         0       335         1         0
+       336         1         0       337         1         0       338         1         0
+       339         1         0       340         1         0       341         1         0
+       342         1         0       343         1         0       344         1         0
+       345         1         0       346         1         0       347         1         0
+       348         1         0       349         1         0       350         1         0
+       351         1         0       352         1         0       353         1         0
+       354         1         0       355         1         0       356         1         0
+       357         1         0       358         1         0       359         1         0
+       360         1         0       361         1         0       362         1         0
+       363         1         0       364         1         0       365         1         0
+       366         1         0       367         1         0       368         1         0
+       369         1         0       370         1         0       371         1         0
+       372         1         0       373         1         0       374         1         0
+       375         1         0       376         1         0       377         1         0
+       378         1         0       379         1         0       380         1         0
+       381         1         0       382         1         0       383         1         0
+       384         1         0       385         1         0       386         1         0
+       387         1         0       388         1         0       389         1         0
+       390         1         0       391         1         0       392         1         0
+       393         1         0       394         1         0       395         1         0
+       396         1         0       397         1         0       398         1         0
+       399         1         0       400         1         0       401         1         0
+       402         1         0       403         1         0       404         1         0
+       405         1         0       406         1         0       407         1         0
+       408         1         0       409         1         0       410         1         0
+       411         1         0       412         1         0       413         1         0
+       414         1         0       415         1         0       416         1         0
+       417         1         0       418         1         0       419         1         0
+       420         1         0       421         1         0       422         1         0
+       423         1         0       424         1         0       425         1         0
+       426         1         0       427         1         0       428         1         0
+       429         1         0       430         1         0       431         1         0
+       432         1         0       433         1         0       434         1         0
+       435         1         0       436         1         0       437         1         0
+       438         1         0       439         1         0       440         1         0
+       441         1         0       442         1         0       443         1         0
+       444         1         0       445         1         0       446         1         0
+       447         1         0       448         1         0       449         1         0
+       450         1         0       451         1         0       452         1         0
+       453         1         0       454         1         0       455         1         0
+       456         1         0       457         1         0       458         1         0
+       459         1         0       460         1         0       461         1         0
+       462         1         0       463         1         0       464         1         0
+       465         1         0       466         1         0       467         1         0
+       468         1         0       469         1         0       470         1         0
+       471         1         0       472         1         0       473         1         0
+       474         1         0       475         1         0       476         1         0
+       477         1         0       478         1         0       479         1         0
+       480         1         0       481         1         0       482         1         0
+       483         1         0       484         1         0       485         1         0
+       486         1         0       487         1         0       488         1         0
+       489         1         0       490         1         0       491         1         0
+       492         1         0       493         1         0       494         1         0
+       495         1         0       496         1         0       497         1         0
+       498         1         0       499         1         0       500         1         0
+       501         1         0       502         1         0       503         1         0
+       504         1         0       505         1         0       506         1         0
+       507         1         0       508         1         0       509         1         0
+       510         1         0       511         1         0       512         1         0
+       513         1         0       514         1         0       515         1         0
+       516         1         0       517         1         0       518         1         0
+       519         1         0       520         1         0       521         1         0
+       522         1         0       523         1         0       524         1         0
+       525         1         0       526         1         0       527         1         0
+       528         1         0       529         1         0       530         1         0
+       531         1         0       532         1         0       533         1         0
+       534         1         0       535         1         0       536         1         0
+       537         1         0       538         1         0       539         1         0
+       540         1         0       541         1         0       542         1         0
+       543         1         0       544         1         0       545         1         0
+       546         1         0       547         1         0       548         1         0
+       549         1         0       550         1         0       551         1         0
+       552         1         0       553         1         0       554         1         0
+       555         1         0       556         1         0       557         1         0
+       558         1         0       559         1         0       560         1         0
+       561         1         0       562         1         0       563         1         0
+       564         1         0       565         1         0       566         1         0
+       567         1         0       568         1         0       569         1         0
+       570         1         0       571         1         0       572         1         0
+       573         1         0       574         1         0       575         1         0
+       576         1         0       577         1         0       578         1         0
+       579         1         0       580         1         0       581         1         0
+       582         1         0       583         1         0       584         1         0
+       585         1         0       586         1         0       587         1         0
+       588         1         0       589         1         0       590         1         0
+       591         1         0
+
+         4 !MOLNT
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         1         1         1         1
+         1         1         1         1         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         2         2         2         2         2         2         2         2
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         3         3         3         3
+         3         3         3         3         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+         4         4         4         4         4         4         4         4
+
+         0         0 !NUMLP NUMLPH
+
+         0 !NCRTERM: cross-terms
+

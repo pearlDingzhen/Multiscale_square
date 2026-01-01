@@ -1,0 +1,1 @@
+# This file makes 'multiscale2' a Python package.

@@ -1,0 +1,26 @@
+defaults:
+  molecule_type: protein
+  nmol: 40
+  restraint: false
+  charge_termini: both
+  fresidues: /mnt/hdd1/home/tianxj/code/ms2main/Multiscale_square/multiscale2/calvados_data/residues_CALVADOS2.csv
+  alpha: 0
+  kb: 8033.0
+  pdb_folder: null
+  periodic: false
+  cutoff_restr: 0.9
+  k_go: 15.0
+  use_com: true
+  colabfold: 0
+system:
+  TDP43_CTD:
+    name: TDP43_CTD
+    molecule_type: protein
+    nmol: 40
+    ffasta: TDP43_CTD.fasta
+    restraint: false
+    restraint_type: harmonic
+    use_com: false
+    k_harmonic: 700.0
+    colabfold: 1
+    charge_termini: both

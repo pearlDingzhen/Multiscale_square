@@ -1,0 +1,33 @@
+---
+# 多组分 SLAB 模拟配置 (TDP43_CTD + FUS)
+system_name: TDP43_FUS_SLAB
+
+# 盒子设置 (nm)
+box: [40, 40, 80]
+
+# 模拟参数
+temperature: 293.0
+ionic: 0.15  # 150 mM = 0.15 M
+steps: 20000
+report_interval: 2000
+timestep: 0.01
+
+# 拓扑类型: slab 或 cubic
+# SLAB 会自动设置 slab_width = box[2] / 2
+topol: slab
+
+# 组件定义
+components:
+  - name: TDP43_CTD
+    type: idp
+    nmol: 50
+    ffasta: TDP43_CTD.fasta
+    charge_termini: both
+    restraint: false
+
+  - name: FUS
+    type: idp
+    nmol: 100
+    ffasta: TDP43_CTD.fasta
+    charge_termini: both
+    restraint: false

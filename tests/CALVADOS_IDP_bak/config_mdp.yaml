@@ -1,0 +1,43 @@
+# CALVADOS CG Simulation Configuration - MDP模式
+# 用于 TDP43 折叠蛋白模拟
+#
+# Notes:
+#   - MDP 组件使用 residues_CALVADOS3.csv
+#   - domains 可以从文件读取或直接内联定义
+
+# 系统信息
+system_name: TDP43
+
+# 环境参数
+box: [40.0, 40.0, 40.0]   # nm (x, y, z)
+temperature: 293.0        # Kelvin
+ionic: 0.15               # Molar (离子强度)
+
+# 拓扑类型: cubic | slab
+topol: cubic
+
+# 模拟参数
+simulation:
+  steps: 1500000            # 总积分步数（减少以加快测试）
+  wfreq: 500              # 写入频率
+  platform: CUDA           # CPU | CUDA
+  verbose: true
+
+# 组件定义
+components:
+  # MDP 组件 - 基于 TDP43 结构
+  - name: TDP43
+    type: MDP
+    nmol: 100               # 单分子测试
+    fpdb: TDP43.pdb       # PDB 文件
+    # 域定义（内联 YAML 格式）
+    fdomains: |
+      TDP43:
+        - [3, 76]
+        - [106, 176]
+        - [192, 260]
+        - [320, 334]
+    restraint: true       # 启用结构约束
+    restraint_type: harmonic  # harmonic | go
+    charge_termini: both
+
