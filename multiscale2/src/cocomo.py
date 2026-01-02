@@ -1,32 +1,3 @@
-#!/usr/bin/env python3
-"""
-COCOMO2 Creator
-
-A module for creating COCOMO2 coarse-grained molecular dynamics systems
-using OpenMM with custom force fields.
-
-This module provides the COCOMO class for building complete OpenMM systems
-with:
-- Harmonic bond forces
-- Harmonic angle forces
-- Electrostatic interactions (custom nonbonded)
-- Van der Waals forces (custom nonbonded)
-- Special interactions (cation-pi, pi-pi)
-- Elastic network models for folded domains
-
-Usage:
-    from multiscale2.src.cocomo2_creator import COCOMO
-    
-    cocomo = COCOMO(
-        box_size=10.0,
-        topology_info=topology_info,
-        positions=positions,
-        surf=0.7,
-        resources='CUDA'
-    )
-    system = cocomo.create_system()
-"""
-
 from __future__ import print_function
 import numpy as np
 from openmm.unit import *
@@ -44,6 +15,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Import from same package
 from .cg import CGSimulationConfig, CGSimulator
 
 
@@ -186,48 +158,9 @@ class COCOMO:
         return self.AA_1TO3.get(aa_1letter, 'ALA')
     
     def _get_chain_letter(self, chain_id: int) -> str:
-        """
-        Convert chain ID (1-based int) to unique chain identifier.
-        
-        Uses a format that supports unlimited chains:
-        - 1-26: 'A' to 'Z'
-        - 27-52: 'A1' to 'Z1'
-        - 53-78: 'A2' to 'Z2'
-        - etc.
-        
-        Args:
-            chain_id: 1-based chain ID
-            
-        Returns:
-            Unique chain identifier string
-        """
-        # Handle single letters for chains 1-26
-        if chain_id <= 26:
-            return chr(ord('A') + chain_id - 1)
-        else:
-            # For chains > 26, use letter + number suffix
-            letter_idx = (chain_id - 1) % 26
-            suffix = (chain_id - 1) // 26
-            return chr(ord('A') + letter_idx) + str(suffix)
-    
-    def _get_chain_id_from_letter(self, chain_letter: str) -> int:
-        """
-        Convert chain identifier string back to 1-based int.
-        
-        Args:
-            chain_letter: Chain identifier string like 'A', 'B', 'A1', 'B2', etc.
-            
-        Returns:
-            1-based chain ID (int)
-        """
-        if len(chain_letter) == 1:
-            # Single letter: 'A' to 'Z'
-            return ord(chain_letter) - ord('A') + 1
-        else:
-            # Format like 'A1', 'B2', etc.
-            letter = chain_letter[0]
-            suffix = int(chain_letter[1:])
-            return (ord(letter) - ord('A') + 1) + suffix * 26
+        """Convert chain ID (1-based int) to chain letter."""
+        # Chain ID 1 -> 'A', 2 -> 'B', etc.
+        return chr(ord('A') + (chain_id - 1) % 26)
     
     def _get_residues_by_chain(self) -> Dict[int, List[int]]:
         """
@@ -304,18 +237,12 @@ class COCOMO:
     
     def _create_box_vectors(self):
         """Create periodic box vectors."""
-        # Handle both single float and list formats for box_size
-        if isinstance(self.box_size, (list, tuple)):
-            box_x, box_y, box_z = self.box_size
-        else:
-            box_x = box_y = box_z = self.box_size
-        
         a = Quantity(np.zeros([3]), nanometers)
-        a[0] = box_x * nanometers
+        a[0] = self.box_size * nanometers
         b = unit.Quantity(np.zeros([3]), nanometers)
-        b[1] = box_y * nanometers
+        b[1] = self.box_size * nanometers
         c = unit.Quantity(np.zeros([3]), nanometers)
-        c[2] = box_z * nanometers
+        c[2] = self.box_size * nanometers
         return a, b, c
     
     def _add_bond_force(self, system, top):
@@ -532,113 +459,45 @@ class COCOMO:
             system.addForce(force5)
     
     def _add_elastic_network(self, system, top):
-        """
-        Add elastic network for folded domains using is_folded list.
+        """Add elastic network for folded domains using folded_domains."""
+        # Get folded regions
+        folded_regions = self._get_folded_regions()
         
-        Uses the global is_folded list to identify all folded domains,
-        then adds elastic bonds within each chain's folded regions.
-        """
-        # Get is_folded from topology_info
-        # Note: topology_info should be set before calling this method
-        if not hasattr(self, '_topology_info') or self._topology_info is None:
-            print("Warning: _topology_info not set, skipping elastic network")
-            return
+        if not folded_regions:
+            print("No folded regions found, skipping elastic network")
+            return  # No elastic network needed
         
-        is_folded = self._topology_info.is_folded if self._topology_info else []
-        chain_ids = self._topology_info.chain_ids if self._topology_info else []
-        
-        if not is_folded or not chain_ids:
-            print("Warning: No is_folded or chain_ids found, skipping elastic network")
-            return
-        
-        # Build chain -> residues mapping
-        residues_by_chain = self._get_residues_by_chain()
-        
-        if not residues_by_chain:
-            print("Warning: No residues_by_chain found, skipping elastic network")
-            return
-        
-        # Create elastic force
         elastic_force = CustomBondForce("0.5*k*(r-r0)^2")
         elastic_force.addGlobalParameter("k", self.FORCE_CONSTANT / nanometer ** 2)
         elastic_force.addPerBondParameter("r0")
         
-        # Group residues by chain and identify folded regions within each chain
-        # chain_id (int) -> [(start, end), ...] for folded regions
-        folded_regions_by_chain = {}
-        
-        # Extract folded regions from is_folded (global indices)
-        i = 0
-        n = len(is_folded)
-        
-        while i < n:
-            if is_folded[i] == 1:
-                region_start = i
-                while i < n and is_folded[i] == 1:
-                    i += 1
-                region_end = i - 1
-                
-                # Get chain_id for this residue
-                if i < len(chain_ids):
-                    chain_id = chain_ids[i]
-                    if chain_id not in folded_regions_by_chain:
-                        folded_regions_by_chain[chain_id] = []
-                    folded_regions_by_chain[chain_id].append((region_start, region_end))
-            else:
-                i += 1
-        
-        # Sort chain IDs numerically (they are already integers 1, 2, 3, ...)
-        sorted_chain_ids = sorted(folded_regions_by_chain.keys())
-        
-        # Get atoms by chain
+        # Build elastic network for each folded region in each chain
         atoms_by_chain = self._get_topology_atoms_by_chain(top)
         
-        # Build mapping from chain_id (int) to topology chain id (string)
-        chain_id_to_topo = {}
+        # Get residues grouped by chain (using global sequence indices)
+        residues_by_chain = self._get_residues_by_chain()
         
-        def topo_sort_key(x):
-            """Sort chain IDs: A, B, ..., Z, A1, B1, ..., Z1, A2, ..."""
-            if isinstance(x, str):
-                if len(x) == 1:
-                    return (0, ord(x))
-                else:
-                    return (int(x[1:]), ord(x[0]))
-            return (0, x)
-        
-        sorted_topo_ids = sorted(atoms_by_chain.keys(), key=topo_sort_key)
-        for idx, topo_id in enumerate(sorted_topo_ids):
-            chain_id_to_topo[idx + 1] = topo_id  # idx is 0-based, chain_id is 1-based
-        
-        total_mdp_chains = 0
-        for chain_id in sorted_chain_ids:
-            chain_global_indices = residues_by_chain.get(chain_id, [])
+        for chain_id in sorted(atoms_by_chain.keys()):
+            chain_atoms = atoms_by_chain[chain_id]
+            # Convert chain letter to integer index for residues_by_chain
+            # chain_id is like 'A', 'B', etc. from topology
+            # residues_by_chain uses integers 1, 2, 3, etc.
+            chain_int_id = ord(chain_id) - ord('A') + 1
+            
+            # Get global residue indices for this chain
+            chain_global_indices = residues_by_chain.get(chain_int_id, [])
             
             if not chain_global_indices:
+                print(f"  Warning: No global indices found for chain {chain_id} (int_id={chain_int_id})")
                 continue
             
-            # Get folded regions for this chain
-            chain_folded_regions = folded_regions_by_chain.get(chain_id, [])
-            
-            if not chain_folded_regions:
-                continue
-            
-            total_mdp_chains += 1
-            
-            # Get chain topology id for display
-            chain_topo_id = chain_id_to_topo.get(chain_id, str(chain_id))
-            
-            # Process each folded region
-            for region_start, region_end in chain_folded_regions:
-                # Get residues in this region that belong to this chain
-                region_indices = [idx for idx in chain_global_indices
+            for region_start, region_end in folded_regions:
+                # Get global indices in this region that belong to this chain
+                # region_start and region_end are 0-based global indices
+                region_indices = [idx for idx in chain_global_indices 
                                 if region_start <= idx <= region_end]
                 
-                if not region_indices:
-                    continue
-                
-                expected_count = region_end - region_start + 1
-                print(f"  Chain {chain_topo_id}: global region [{region_start+1}, {region_end+1}] "
-                      f"has {len(region_indices)}/{expected_count} residues")
+                print(f"  Chain {chain_id}: region [{region_start+1}, {region_end+1}] has {len(region_indices)} residues in chain")
                 
                 # Add bonds between all pairs within cutoff distance
                 n_region = len(region_indices)
@@ -648,6 +507,7 @@ class COCOMO:
                         idx1 = region_indices[i]
                         idx2 = region_indices[j]
                         
+                        # Use positions from self.positions (global indices)
                         pos1 = self.positions[idx1]
                         pos2 = self.positions[idx2]
                         distance = unit.norm(pos1 - pos2)
@@ -656,12 +516,9 @@ class COCOMO:
                             elastic_force.addBond(idx1, idx2, [distance])
                             bonds_added += 1
                 
-                if bonds_added > 0:
-                    print(f"  Added {bonds_added} elastic bonds in global region [{region_start+1}, {region_end+1}]")
+                print(f"  Added {bonds_added} elastic bonds in region [{region_start+1}, {region_end+1}]")
             
-            print(f"Building ENM: chain {chain_topo_id}/{self.n_chains}")
-        
-        print(f"Total MDP chains with ENM: {total_mdp_chains}")
+            print(f"Building ENM: chain {chain_id}/{self.n_chains}")
         
         system.addForce(elastic_force)
     
@@ -671,7 +528,6 @@ class COCOMO:
         
         Returns:
             openmm.System: Complete OpenMM system with all forces
-            topology.Topology: Molecular topology
         """
         system = openmm.System()
         
@@ -703,7 +559,7 @@ class COCOMO:
         if any(self.folded_domains):
             self._add_elastic_network(system, top)
         
-        return system, top
+        return system
 
 
 def main():
@@ -779,4 +635,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
