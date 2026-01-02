@@ -29,9 +29,11 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from pathlib import Path
 
-from openmm import Platform, LangevinIntegrator, XmlSerializer
+from openmm import Platform, LangevinIntegrator, LangevinMiddleIntegrator, XmlSerializer
+import openmm as mm
+import openmm.unit as unit
 from openmm.app import (
-    Simulation, StateDataReporter,
+    Simulation, StateDataReporter, PDBFile
 )
 from openmm.unit import (
     picoseconds, nanometers, kilojoule, mole,
@@ -526,17 +528,13 @@ class CGSimulator:
                     f"Output directory exists: {output_dir}\n"
                     f"Use overwrite=True to replace."
                 )
-        else:
-            os.makedirs(output_dir, exist_ok=True)
+            # 如果 overwrite=True，不删除目录，让后续的力场特定方法来处理备份逻辑
 
         self.output_dir = output_dir
 
         print(f"\n[CGSimulator] Setting up...")
         print(f"  Output directory: {output_dir}")
         print(f"  System: {self.config.system_name}")
-
-        # 复制输入文件
-        self._copy_input_files(output_dir)
 
         self.is_setup = True
         print(f"  ✓ Setup complete")
@@ -1129,6 +1127,8 @@ class CGSimulator:
             shutil.move(output_dir, backup_dir)
             print(f"  📁 备份旧结果到: {backup_dir}")
 
+        # 先创建父目录，再创建 raw 子目录
+        os.makedirs(output_dir, exist_ok=True)
         os.makedirs(raw_dir, exist_ok=True)
 
         return {
@@ -1283,11 +1283,33 @@ class CGSimulator:
 
             # 运行 CALVADOS 模拟
             from multiscale2.extern.ms2_calvados.calvados import sim as calvados_sim
-            calvados_sim.run(
-                path=raw_dir,
-                fconfig='config.yaml',
-                fcomponents='components.yaml'
-            )
+            try:
+                calvados_sim.run(
+                    path=raw_dir,
+                    fconfig='config.yaml',
+                    fcomponents='components.yaml'
+                )
+            except Exception as calvados_error:
+                # 如果 CUDA 失败，尝试使用 CPU
+                if 'CUDA' in str(calvados_error) or 'Platform' in str(calvados_error) or 'no registered Platform' in str(calvados_error):
+                    print(f"  ⚠️  CALVADOS 预平衡 CUDA 失败，尝试使用 CPU...")
+                    # 修改配置文件中的 platform 为 CPU
+                    import yaml
+                    config_file = os.path.join(raw_dir, 'config.yaml')
+                    with open(config_file, 'r') as f:
+                        config_dict = yaml.safe_load(f)
+                    config_dict['platform'] = 'CPU'
+                    with open(config_file, 'w') as f:
+                        yaml.dump(config_dict, f)
+                    
+                    # 重新运行
+                    calvados_sim.run(
+                        path=raw_dir,
+                        fconfig='config.yaml',
+                        fcomponents='components.yaml'
+                    )
+                else:
+                    raise
 
             # 查找生成的最终结构
             final_pdb = os.path.join(equilibration_dir, 'final.pdb')
@@ -1428,6 +1450,9 @@ class CGSimulator:
         output_dir = dirs['output_dir']
         raw_dir = dirs['raw_dir']
         task_name = dirs['task_name']
+
+        # 复制输入文件（在备份逻辑之后）
+        self._copy_input_files(output_dir)
 
         self.is_running = True
         result = SimulationResult()
@@ -1619,28 +1644,21 @@ Output Files:
         """
         运行 HPS-Urry 模拟
 
-        自动进行预平衡（使用 CALVADOS 构建初始结构）：
-        1. 用 CALVADOS 力场构建初始 CG 结构
-        2. 对 MDP 蛋白进行短时间模拟
-        3. 然后切换到 HPS-Urry 力场进行正式模拟
-
-        预平衡参数（硬编码，可通过 kwargs 覆盖）：
-        - steps: 预平衡步数（默认 100000）
-        - mapping: 映射方式 'ca' 或 'com'（默认 'ca'）
-        - k_restraint: 约束力常数（默认 10000.0）
-        - use_com: 是否使用 COM 约束（默认 True）
-        - platform: 计算平台（默认从 config 读取，CUDA）
+        流程：
+        1. 用 CALVADOS 力场构建初始 CG 结构（预平衡）
+        2. 使用 HPSParser 解析每个 component（MDP 支持 domain）
+        3. 构建 HPSModel 并添加力场
+        4. 运行 OpenMM 模拟
 
         Args:
             gpu_id: GPU 设备 ID
             **kwargs: 额外参数
-                - nstep: 模拟步数（覆盖配置中的值）
-                - wfreq: 写入频率
                 - preequil_steps: 预平衡步数
                 - preequil_mapping: 预平衡映射方式 ('ca' 或 'com')
                 - preequil_k_restraint: 预平衡约束力常数
                 - preequil_use_com: 预平衡是否使用 COM 约束
-                - preequil_platform: 预平衡平台（CUDA 或 CPU）
+                - preequil_platform: 预平衡平台
+                - platform: 模拟平台 (CPU/CUDA)
 
         Returns:
             SimulationResult
@@ -1648,13 +1666,21 @@ Output Files:
         self._ensure_setup()
         self._ensure_not_running()
 
-        # 预平衡参数（硬编码，可覆盖）
+        # 预平衡参数
         preequil_steps = kwargs.get('preequil_steps', 100000)
         preequil_mapping = kwargs.get('preequil_mapping', 'ca')
         preequil_k_restraint = kwargs.get('preequil_k_restraint', 10000.0)
         preequil_use_com = kwargs.get('preequil_use_com', True)
-        # 预平衡平台：优先使用 kwargs 中指定的值，否则使用 config 中的设置（默认为 CUDA）
         preequil_platform = kwargs.get('preequil_platform', self.config.simulation.platform)
+        
+        # 检查 CUDA 是否可用，如果不可用则回退到 CPU
+        if preequil_platform == ComputePlatform.CUDA:
+            try:
+                from openmm import Platform
+                Platform.getPlatformByName('CUDA')
+            except:
+                print(f"  ⚠️  CUDA 不可用，预平衡将使用 CPU")
+                preequil_platform = ComputePlatform.CPU
 
         # 预平衡（使用 CALVADOS 构建初始结构）
         preequil_pdb = self._run_pre_equilibration(
@@ -1670,26 +1696,394 @@ Output Files:
 
         self.is_running = True
         result = SimulationResult()
-        result.output_dir = self.output_dir
 
         try:
             print(f"\n[HPS-Urry] Running simulation...")
             print(f"  GPU ID: {gpu_id}")
 
-            # TODO: 实现 HPS-Urry runner
-            # 使用 OpenABC 包的 HPS-Urry 力场
+            # ===== 1. 导入 HPS 相关模块 =====
+            try:
+                from multiscale2.extern.ms2_openabc.forcefields.parsers.hps_parser import HPSParser
+                from multiscale2.extern.ms2_openabc.forcefields import HPSModel
+                from multiscale2.extern.ms2_openabc.lib import _kcal_to_kj
+            except ImportError as e:
+                raise ImportError(f"ms2_openabc module not available: {e}")
+
+            # ===== 2. 为每个 component 创建 HPSParser =====
+            parsers = []
+            print("\n  构建 HPSParser...")
+            
+            for comp in self.config.components:
+                if comp.type == ComponentType.MDP:
+                    # MDP: 使用提供的 PDB + domain 定义
+                    if not comp.fpdb:
+                        raise ValueError(f"MDP component '{comp.name}' 需要 fpdb 文件")
+                    
+                    # 导入原子结构转 CA 的工具函数
+                    from multiscale2.extern.ms2_openabc.utils.helper_functions import atomistic_pdb_to_ca_pdb
+                    
+                    # 创建临时 CA-only PDB 文件（如果原始 PDB 不是 CA-only）
+                    ca_pdb_path = comp.fpdb
+                    temp_ca_pdb = None
+                    
+                    # 检查原始 PDB 是否是 CA-only
+                    from multiscale2.extern.ms2_openabc.utils import parse_pdb
+                    original_atoms = parse_pdb(comp.fpdb)
+                    if not (original_atoms['name'].eq('CA').all()):
+                        # 原始 PDB 是全原子的，需要转换为 CA-only
+                        import os
+                        temp_ca_pdb = os.path.join(self.output_dir, f'_temp_{comp.name}_ca.pdb')
+                        atomistic_pdb_to_ca_pdb(comp.fpdb, temp_ca_pdb)
+                        ca_pdb_path = temp_ca_pdb
+                    
+                    # 处理 fdomains：可能是文件路径或内联 YAML 内容
+                    fdomains_path = comp.fdomains
+                    temp_domains_file = None
+                    
+                    if comp.fdomains:
+                        # 检查是否是内联 YAML 内容（包含换行符和 YAML 格式）
+                        if '\n' in comp.fdomains and ('[' in comp.fdomains or '-' in comp.fdomains):
+                            # 内联 YAML 内容，需要写入临时文件
+                            import os
+                            import tempfile
+                            temp_domains_file = os.path.join(self.output_dir, f'_temp_{comp.name}_domains.yaml')
+                            with open(temp_domains_file, 'w') as f:
+                                f.write(comp.fdomains)
+                            fdomains_path = temp_domains_file
+                        elif not os.path.isfile(comp.fdomains):
+                            # 既不是文件也不是内联内容，可能是字符串格式的列表
+                            try:
+                                import ast
+                                # 尝试解析为 Python 列表
+                                domains_list = ast.literal_eval(comp.fdomains)
+                                import os
+                                temp_domains_file = os.path.join(self.output_dir, f'_temp_{comp.name}_domains.yaml')
+                                # 转换为 YAML 格式
+                                import yaml
+                                yaml_content = {comp.name: domains_list}
+                                with open(temp_domains_file, 'w') as f:
+                                    yaml.dump(yaml_content, f)
+                                fdomains_path = temp_domains_file
+                            except:
+                                # 如果解析失败，设为 None 让 HPSParser 处理
+                                fdomains_path = None
+                    
+                    parser = HPSParser(
+                        ca_pdb=ca_pdb_path,
+                        fdomains=fdomains_path
+                    )
+                    print(f"    {comp.name}: MDP, {len(parser.atoms)} CA atoms")
+                    
+                    if parser.enm_pairs:
+                        print(f"      → {len(parser.enm_pairs)} ENM pairs")
+                    
+                    # 清理临时文件
+                    if temp_ca_pdb and os.path.exists(temp_ca_pdb):
+                        os.remove(temp_ca_pdb)
+                    if temp_domains_file and os.path.exists(temp_domains_file):
+                        os.remove(temp_domains_file)
+                    
+                    parsers.append((comp, parser))
+                    
+                elif comp.type == ComponentType.IDP:
+                    # IDP: 从 FASTA 序列构建直的 CA 链
+                    if not comp.ffasta:
+                        raise ValueError(f"IDP component '{comp.name}' 需要 ffasta 文件")
+                    
+                    # 读取 FASTA 序列
+                    with open(comp.ffasta, 'r') as f:
+                        fasta_content = f.read()
+                    
+                    # 解析 FASTA（提取匹配组件名的序列）
+                    lines = fasta_content.strip().split('\n')
+                    sequence = None
+                    current_seq_lines = []
+                    in_target_sequence = False
+                    
+                    for line in lines:
+                        if line.startswith('>'):
+                            # 如果上一段是我们要的序列，保存它
+                            if in_target_sequence:
+                                sequence = ''.join(current_seq_lines)
+                                break
+                            # 检查这一行是否是我们要找的序列
+                            in_target_sequence = (comp.name in line.replace('>', '').strip())
+                            current_seq_lines = []
+                        elif in_target_sequence:
+                            current_seq_lines.append(line.strip())
+                    
+                    # 处理最后一个序列
+                    if sequence is None and in_target_sequence:
+                        sequence = ''.join(current_seq_lines)
+                    
+                    if sequence is None:
+                        raise ValueError(f"IDP component '{comp.name}': 未在 FASTA 中找到序列")
+                    
+                    # 使用 build_straight_CA_chain 从序列构建直的 CA 链
+                    from multiscale2.extern.ms2_openabc.utils.helper_functions import build_straight_CA_chain, write_pdb
+                    import os
+                    
+                    # 创建临时 PDB 文件
+                    temp_pdb = os.path.join(self.output_dir, f'_temp_idp_{comp.name}_ca.pdb')
+                    ca_atoms = build_straight_CA_chain(sequence, r0=0.38)
+                    write_pdb(ca_atoms, temp_pdb)
+                    
+                    # 使用临时 PDB 创建 HPSParser
+                    parser = HPSParser(
+                        ca_pdb=temp_pdb,
+                        fdomains=None
+                    )
+                    
+                    print(f"    {comp.name}: IDP, {len(sequence)} residues (built from FASTA sequence)")
+                    parsers.append((comp, parser))
+            
+            if not parsers:
+                raise ValueError("没有有效的 component")
+
+            # ===== 3. 构建 HPSModel =====
+            print("\n  构建 HPSModel...")
+            model = HPSModel()
+            
+            # 设置周期性边界
+            is_periodic = self.config.topol.value in ['cubic', 'slab']
+            model.use_pbc = is_periodic
+            
+            # 添加所有分子（考虑每个 component 的 nmol）
+            for comp, parser in parsers:
+                n_before = len(model.atoms) if model.atoms is not None else 0
+                # 为每个 component 添加 nmol 个分子
+                for _ in range(comp.nmol):
+                    model.append_mol(parser)
+                n_after = len(model.atoms)
+                print(f"    {comp.name}: added {comp.nmol} copies, {n_after - n_before} total atoms")
+
+            # ===== 4. 创建 Topology 和 System =====
+            print("\n  创建 Topology 和 System...")
+            
+            # 创建 HPS 输出子目录（用于存放临时文件和输出文件）
+            hps_output_dir = os.path.join(self.output_dir, 'HPS')
+            os.makedirs(hps_output_dir, exist_ok=True)
+            
+            # 从 model.atoms 创建临时 PDB，然后读取创建 topology（放在 HPS 子目录中）
+            temp_pdb = os.path.join(hps_output_dir, '_temp_hps_model.pdb')
+            model.atoms_to_pdb(temp_pdb, reset_serial=True)
+            topology = PDBFile(temp_pdb).topology
+            
+            # 创建 OpenMM System
+            box_size = self.config.box
+            is_periodic = self.config.topol.value in ['cubic', 'slab']
+            model.create_system(
+                top=topology,
+                use_pbc=is_periodic,
+                box_a=box_size[0],
+                box_b=box_size[1],
+                box_c=box_size[2]
+            )
+            print(f"    ✓ System created: {model.system.getNumParticles()} particles")
+            
+            # ===== 5. 添加力场 =====
+            print("\n  添加力场...")
+            
+            # 蛋白键 (Harmonic)
+            print("    - Protein bonds (harmonic)")
+            model.add_protein_bonds(force_group=1)
+            
+            # 非键接触 (Ashbaugh-Hatch with Urry scale)
+            print("    - Contacts (Ashbaugh-Hatch, Urry scale)")
+            model.add_contacts(
+                hydropathy_scale='Urry',
+                epsilon=0.2 * _kcal_to_kj,  # Convert kcal to kJ
+                mu=1,
+                delta=0.08,
+                force_group=2
+            )
+            
+            # 静电 (Debye-Hückel)
+            print("    - Electrostatics (Debye-Hückel)")
+            model.add_dh_elec(
+                ldby=1 * unit.nanometer,
+                dielectric_water=80.0,
+                cutoff=3.5 * unit.nanometer,
+                force_group=3
+            )
+            
+            # 弹性网络 (如果有 MDP)
+            has_enm = any(p[1].enm_pairs for p in parsers)
+            if has_enm:
+                print("    - Elastic network (for folded domains)")
+                model.add_elastic_network(
+                    force_constant=700.0 * unit.kilojoule_per_mole / unit.nanometer ** 2,
+                    force_group=4
+                )
+
+            # ===== 6. 创建 OpenMM Simulation =====
+            print("\n  创建 OpenMM Simulation...")
+            
+            system = model.system
+            
+            # 从 CALVADOS 预平衡结构读取初始坐标（与 COCOMO 模式一致）
+            if preequil_pdb and os.path.exists(preequil_pdb):
+                print(f"  从预平衡结构读取初始坐标: {preequil_pdb}")
+                pdb = PDBFile(preequil_pdb)
+                positions = pdb.getPositions(asNumpy=True)
+                
+                # 验证坐标数量是否匹配
+                if len(positions) != len(model.atoms):
+                    print(f"  ⚠️  警告: 预平衡结构原子数 ({len(positions)}) 与模型原子数 ({len(model.atoms)}) 不匹配")
+                    print(f"  从临时 PDB 读取坐标")
+                    positions = PDBFile(temp_pdb).getPositions(asNumpy=True)
+                else:
+                    print(f"  ✓ 坐标数量匹配: {len(positions)} 原子")
+            else:
+                print(f"  ⚠️  未找到预平衡结构，从临时 PDB 读取坐标")
+                positions = PDBFile(temp_pdb).getPositions(asNumpy=True)
+
+            # 选择平台
+            config_platform = self.config.simulation.platform
+            platform_name = config_platform.value if hasattr(config_platform, 'value') else str(config_platform)
+            
+            # 尝试 GPU，如果不可用则回退到 CPU
+            if gpu_id >= 0:
+                for pname in [platform_name, 'CUDA', 'OpenCL']:
+                    try:
+                        platform = Platform.getPlatformByName(pname)
+                        properties = {'DeviceIndex': str(gpu_id)}
+                        print(f"    Platform: {pname}")
+                        break
+                    except:
+                        continue
+                else:
+                    platform = Platform.getPlatformByName('CPU')
+                    properties = {}
+                    print(f"    Platform: CPU (GPU unavailable)")
+            else:
+                platform = Platform.getPlatformByName('CPU')
+                properties = {}
+                print(f"    Platform: CPU")
+
+            # 创建积分器
+            temperature = self.config.temperature
+            integrator = LangevinMiddleIntegrator(
+                temperature * kelvin,
+                0.01 / picoseconds,
+                0.01 * picoseconds
+            )
+
+            simulation = Simulation(
+                topology,
+                system,
+                integrator=integrator,
+                platform=platform,
+                platformProperties=properties
+            )
+
+            # 设置初始坐标
+            simulation.context.setPositions(positions)
+
+            # 设置盒子向量
+            if is_periodic:
+                box_size = self.config.box
+                box_vecs = [
+                    mm.Vec3(x=box_size[0], y=0.0, z=0.0),
+                    mm.Vec3(x=0.0, y=box_size[1], z=0.0),
+                    mm.Vec3(x=0.0, y=0.0, z=box_size[2])
+                ] * unit.nanometer
+                simulation.context.setPeriodicBoxVectors(*box_vecs)
+
+            # 能量最小化
+            print("  Energy minimization...")
+            simulation.minimizeEnergy()
+            print("  Energy minimization completed")
+            simulation.context.setVelocitiesToTemperature(temperature * kelvin)
+
+            # ===== 6. 运行模拟 =====
+            print(f"\n  Running HPS simulation: {self.config.simulation.steps} steps...")
+            
+            # 添加报告器（使用之前创建的 HPS 输出目录）
+            output_dir = hps_output_dir
+            
+            wfreq = self.config.simulation.wfreq
+            traj_file = os.path.join(output_dir, 'trajectory.xtc')
+            log_file = os.path.join(output_dir, 'simulation.log')
+            
+            simulation.reporters.append(XTCReporter(traj_file, wfreq))
+            simulation.reporters.append(StateDataReporter(
+                log_file,
+                wfreq,
+                step=True,
+                potentialEnergy=True,
+                kineticEnergy=True,
+                totalEnergy=True,
+                temperature=True,
+                volume=True,
+            ))
+
+            # 进度条
+            from tqdm import tqdm
+            total_steps = self.config.simulation.steps
+            batch_size = 1000
+            
+            for _ in tqdm(range(0, total_steps, batch_size), desc="HPS"):
+                simulation.step(min(batch_size, total_steps - simulation.currentStep))
+
+            print("  Simulation completed!")
+
+            # ===== 7. 保存结果 =====
+            print("\n  保存结果...")
+            
+            # 最终结构
+            state_final = simulation.context.getState(
+                getPositions=True,
+                getVelocities=True,
+                getForces=True,
+                getEnergy=True,
+                enforcePeriodicBox=True
+            )
+            positions_final = state_final.getPositions()
+            
+            final_pdb = os.path.join(output_dir, 'final.pdb')
+            with open(final_pdb, 'w') as f:
+                PDBFile.writeFile(topology, positions_final, f)
+            print(f"    - final.pdb")
+            
+            # 复制到根目录（output_dir 是 HPS/，需要复制到 TDP43_CTD_CG/）
+            system_name = self.config.system_name
+            cg_root_dir = os.path.dirname(output_dir)  # output_dir 是 .../TDP43_CTD_CG/HPS，所以 dirname 是 TDP43_CTD_CG
+            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            os.makedirs(cg_root_dir, exist_ok=True)
+            shutil.copy2(final_pdb, final_pdb_root)
+            print(f"  复制最终结构到: {final_pdb_root}")
+
+            # 保存系统 XML
+            system_xml = os.path.join(output_dir, 'system.xml')
+            with open(system_xml, 'w') as f:
+                f.write(XmlSerializer.serialize(system))
+            print(f"    - system.xml")
+
+            # 保存 checkpoint
+            checkpoint_file = os.path.join(output_dir, 'restart.chk')
+            simulation.saveCheckpoint(checkpoint_file)
+            print(f"    - restart.chk")
 
             result.success = True
-            print(f"  ✓ HPS-Urry simulation completed (placeholder)")
+            result.trajectory = traj_file
+            result.structure = final_pdb
+            result.output_dir = output_dir
+            
+            print(f"\n  HPS-Urry 输出目录: {output_dir}")
 
         except ImportError as e:
             result.success = False
-            result.errors.append(f"OpenABC not installed: {e}")
-            print(f"  ✗ HPS-Urry simulation failed: OpenABC not available")
+            result.errors.append(f"ms2_openabc module not available: {e}")
+            print(f"  ✗ HPS-Urry simulation failed: ms2_openabc module not available")
+            import traceback
+            traceback.print_exc()
         except Exception as e:
             result.success = False
             result.errors.append(str(e))
             print(f"  ✗ HPS-Urry simulation failed: {e}")
+            import traceback
+            traceback.print_exc()
 
         finally:
             self.is_running = False
@@ -1958,7 +2352,7 @@ Output Files:
 
             # 能量最小化
             print("  Running energy minimization...")
-            simulation.minimizeEnergy(tolerance=1.0 * kilojoule / mole / nanometers)
+            simulation.minimizeEnergy()
             print("  Energy minimization completed")
 
             # 运行模拟
@@ -2029,11 +2423,7 @@ Output Files:
                 )
             print(f"  保存最终结构: {final_pdb}")
 
-            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
-            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
-            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
-            shutil.copy2(final_pdb, final_pdb_root)
-            print(f"  复制最终结构到: {final_pdb_root}")
+            # final.pdb 已经在根目录（output_dir = self.output_dir = {system_name}_CG），无需复制
 
             # 保存系统 XML
             system_xml = os.path.join(output_dir, 'system.xml')
@@ -2067,66 +2457,68 @@ Output Files:
         """
         准备 COCOMO 输出目录
 
-        输出目录结构：{output_dir}/{system_name}_CG/
-        与 equilibration 保持同一级别
+        输出目录结构：{output_dir}/ (CLI already sets self.output_dir = {system_name}_CG)
+        直接使用 self.output_dir，避免嵌套目录
         """
-        # CG 目录
-        cg_dir = os.path.join(self.output_dir, f"{self.config.system_name}_CG")
+        # CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
+        output_dir = self.output_dir
 
-        # 备份旧结果
+        # 备份旧结果（仅在目录包含之前的模拟结果时）
         import shutil
         from datetime import datetime
 
-        if os.path.exists(cg_dir):
+        # 检查目录是否存在，以及是否包含之前的模拟结果
+        should_backup = False
+        if os.path.exists(output_dir):
+            # 检查是否有模拟结果文件（不是预平衡文件）
+            result_files = ['final.pdb', 'trajectory.xtc', 'simulation.log', 'system.xml']
+            has_results = any(os.path.exists(os.path.join(output_dir, f)) for f in result_files)
+            
+            # 只有当存在模拟结果时才备份（预平衡文件不算）
+            if has_results:
+                should_backup = True
+        
+        if should_backup:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_dir = f"{cg_dir}_backup_{timestamp}"
-            shutil.move(cg_dir, backup_dir)
+            backup_dir = f"{output_dir}_backup_{timestamp}"
+            shutil.move(output_dir, backup_dir)
             print(f"  📁 备份旧结果到: {backup_dir}")
-
-        os.makedirs(cg_dir, exist_ok=True)
+            # 重新创建输出目录
+            os.makedirs(output_dir, exist_ok=True)
+        else:
+            # 目录不存在或只包含预平衡文件，直接创建（如果不存在）
+            os.makedirs(output_dir, exist_ok=True)
 
         return {
-            'output_dir': cg_dir,
+            'output_dir': output_dir,
             'task_name': 'COCOMO',
         }
-    
+
     def run_mpipi_recharged(self, gpu_id: int = 0, **kwargs) -> SimulationResult:
         """
         运行 Mpipi-Recharged 模拟
 
-        自动进行预平衡（使用 CALVADOS 构建初始结构）：
-        1. 用 CALVADOS 力场构建初始 CG 结构
-        2. 对 MDP 蛋白进行短时间模拟
-        3. 然后切换到 Mpipi-Recharged 力场进行正式模拟
+        使用与 test_100_molecules.py 相同的逻辑：
+        1. 创建 biomolecule 对象（MDP/IDP）
+        2. 使用 gmx insert-molecules 放置分子
+        3. 构建 Mpipi-Recharged 系统
+        4. 能量最小化
+        5. 运行 MD 模拟
 
-        Mpipi-Recharged 力场特点：
-        - 基于残基对查表的短程势能函数
-        - Yukawa 静电屏蔽（Debye 长度计算）
-        - IDR 区域使用简谐键约束
-        - 球形结构域使用 ENM 弹性网络
-
-        预平衡参数（硬编码，可通过 kwargs 覆盖）：
-        - steps: 预平衡步数（默认 100000）
-        - mapping: 映射方式 'ca' 或 'com'（默认 'ca'）
-        - k_restraint: 约束力常数（默认 10000.0）
-        - use_com: 是否使用 COM 约束（默认 True）
-        - platform: 计算平台（默认从 config 读取，CUDA）
+        注意：此方法不使用 CALVADOS 预平衡，Mpipi-Recharged 自己会处理所有初始化。
 
         Args:
             gpu_id: GPU 设备 ID
             **kwargs: 额外参数
-                - csx: 离子强度（mM，默认从 config.ionic * 1000）
-                - preequil_steps: 预平衡步数
-                - preequil_mapping: 预平衡映射方式 ('ca' 或 'com')
-                - preequil_k_restraint: 预平衡约束力常数
-                - preequil_use_com: 预平衡是否使用 COM 约束
-                - preequil_platform: 预平衡平台（CUDA 或 CPU）
+                - use_gmx_insert: 是否使用 gmx insert-molecules 放置分子（默认 True）
+                - gmx_radius: gmx insert-molecules 的最小距离（nm，默认 0.35）
+                - verbose: 是否输出详细信息（默认 True）
 
         Returns:
             SimulationResult
         """
         from openmm.app import PDBFile
-        from openmm import Platform, LangevinMiddleIntegrator, Vec3
+        from openmm import Platform, LangevinMiddleIntegrator, Vec3, LocalEnergyMinimizer
         import openmm as mm
         from openmm import unit
         from openmm.unit import kelvin, picoseconds, nanometer
@@ -2134,10 +2526,7 @@ Output Files:
         self._ensure_setup()
         self._ensure_not_running()
 
-        # Mpipi-Recharged 使用 OpenMpipi 原生的 relaxation 流程，跳过 CALVADOS 预平衡
-        print("\n  使用 OpenMpipi 原生流程构建系统")
-
-        # 准备输出目录
+        # 输出目录
         dirs = self._prepare_mpipi_output()
         output_dir = dirs['output_dir']
 
@@ -2149,7 +2538,6 @@ Output Files:
 
             # 从 ms2_OpenMpipi 导入 biomolecule 类和新函数
             from multiscale2.extern.ms2_OpenMpipi import MDP, IDP, build_mpipi_recharged_system_from_chains
-            import openmm.unit as openmm_unit
 
             # 从 config.components 构建 biomolecule 对象
             print("\n  构建 biomolecule 对象...")
@@ -2239,13 +2627,27 @@ Output Files:
             box_size = self.config.box  # 使用 config 指定的盒子大小
             
             print("\n  构建 Mpipi-Recharged 系统（包含 relaxation + model building + 力场）...")
+            # 使用 gmx insert-molecules 作为默认的分子放置方法（更稳健，避免重叠）
+            use_gmx_insert = kwargs.get('use_gmx_insert', True)  # 默认使用 gmx insert-molecules
+            gmx_radius = kwargs.get('gmx_radius', 0.35)  # 默认最小距离 0.35 nm
+            verbose = kwargs.get('verbose', True)
+            
+            if use_gmx_insert:
+                print(f"  使用 gmx insert-molecules 放置分子 (radius={gmx_radius} nm)")
+            else:
+                print(f"  使用 CALVADOS 网格放置方法")
+            
             system, model = build_mpipi_recharged_system_from_chains(
                 chain_info=chain_info,
                 box_size=box_size,
-                T=self.config.temperature * openmm_unit.kelvin,
+                topol=self.config.topol.value,
+                T=self.config.temperature * unit.kelvin,
                 csx=csx,
                 CM_remover=True,
-                periodic=is_periodic
+                periodic=is_periodic,
+                use_gmx_insert=use_gmx_insert,  # 使用 gmx insert-molecules
+                gmx_radius=gmx_radius,  # 最小距离
+                verbose=verbose
             )
             print(f"  系统构建完成: {system.getNumParticles()} 粒子, {system.getNumForces()} 力")
 
@@ -2263,7 +2665,7 @@ Output Files:
                 try:
                     platform = Platform.getPlatformByName(platform_name)
                     properties = {'DeviceIndex': str(gpu_id)}
-                    print(f"  使用 {platform_name} 平台")
+                    print(f"  使用 {platform_name} 平台 (GPU {gpu_id})")
                 except Exception:
                     # 尝试其他GPU平台
                     for fallback in ['CUDA', 'OpenCL']:
@@ -2285,8 +2687,7 @@ Output Files:
                 properties = {}
                 print("  使用 CPU 平台")
 
-            # 使用 LangevinMiddleIntegrator（与 OpenMpipi 示例一致）
-            # 温度从 config 读取，摩擦系数 0.01/ps，时间步长 0.01 ps
+            # 使用 LangevinMiddleIntegrator（与 test_100_molecules.py 一致）
             temperature = self.config.temperature
             integrator = LangevinMiddleIntegrator(
                 temperature * kelvin,
@@ -2294,7 +2695,7 @@ Output Files:
                 0.01 * picoseconds
             )
 
-            simulation = Simulation(
+            simulation = mm.app.Simulation(
                 topology,
                 system,
                 integrator=integrator,
@@ -2302,7 +2703,8 @@ Output Files:
                 platformProperties=properties
             )
 
-            # 设置初始坐标
+            # 设置初始坐标：使用 gmx insert-molecules 生成的坐标（不使用 CALVADOS 预平衡）
+            print(f"  使用 gmx insert-molecules 生成的坐标")
             simulation.context.setPositions(positions)
 
             # 如果系统有周期性边界，设置盒子向量
@@ -2315,9 +2717,6 @@ Output Files:
                 ] * unit.nanometer
                 simulation.context.setPeriodicBoxVectors(*box_vecs)
 
-            # 设置初始速度
-            simulation.context.setVelocitiesToTemperature(temperature * kelvin)
-
             # 保存 minimization 前的结构（用于调试）
             debug_pdb_before_min = os.path.join(output_dir, 'before_minimization.pdb')
             with open(debug_pdb_before_min, 'w') as f:
@@ -2328,10 +2727,30 @@ Output Files:
                 )
             print(f"  保存 minimization 前结构: {debug_pdb_before_min}")
 
-            # 能量最小化
+            # 能量最小化（与 test_100_molecules.py 一致：minimizeEnergy 不带参数）
             print("  Running energy minimization...")
-            simulation.minimizeEnergy(tolerance=1.0 * kilojoule / mole / nanometers)
+            simulation.minimizeEnergy()
             print("  Energy minimization completed")
+
+            # 获取最小化后的状态和能量
+            state_after_min = simulation.context.getState(getPositions=True, getEnergy=True)
+            energy_after_min = state_after_min.getPotentialEnergy()
+            print(f"  Minimization energy: {energy_after_min}")
+
+            # 检查能量是否为 NaN
+            if np.isnan(energy_after_min.value_in_unit(unit.kilojoule_per_mole)):
+                raise RuntimeError("Energy minimization failed: NaN energy")
+
+            # 保存最小化后的结构
+            positions_after_min = state_after_min.getPositions()
+            debug_pdb_after_min = os.path.join(output_dir, 'after_minimization.pdb')
+            with open(debug_pdb_after_min, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions_after_min,
+                    f
+                )
+            print(f"  保存 minimization 后结构: {debug_pdb_after_min}")
 
             # 运行模拟
             wfreq = self.config.simulation.wfreq
@@ -2396,105 +2815,58 @@ Output Files:
                 PDBFile.writeFile(
                     simulation.topology,
                     positions_final,
-                    f
+                    f,
+                    keepIds=True
                 )
-            print(f"  保存最终结构 (含 CONECT): {final_pdb}")
 
-            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
-            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
-            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            # 复制 final.pdb 到根目录（self.output_dir = {system_name}_CG）
+            import shutil
+            final_pdb_root = os.path.join(self.output_dir, 'final.pdb')
             shutil.copy2(final_pdb, final_pdb_root)
-            print(f"  复制最终结构到: {final_pdb_root}")
+            print(f"  复制最终结构到根目录: {final_pdb_root}")
 
-            # 额外保存一个不带 CONECT 的版本（只保存坐标）
-            final_pdb_no_conect = os.path.join(output_dir, 'final_no_conect.pdb')
-            
-            # 复制拓扑对象（不复制 bonds）
-            from openmm.app import Topology
-            topology_no_conect = Topology()
-            topology_no_conect.setPeriodicBoxVectors(box_vectors)
-            
-            # 标准 PDB atom 名称映射
-            pdb_atom_names = {
-                'pA': 'CA', 'pR': 'CA', 'pN': 'CA', 'pD': 'CA', 'pC': 'CA',
-                'pQ': 'CA', 'pE': 'CA', 'pG': 'CA', 'pH': 'CA', 'pI': 'CA',
-                'pL': 'CA', 'pK': 'CA', 'pM': 'CA', 'pF': 'CA', 'pP': 'CA',
-                'pS': 'CA', 'pT': 'CA', 'pW': 'CA', 'pY': 'CA', 'pV': 'CA',
-                'rU': 'P',   # RNA 用磷原子
-            }
-            
-            # 标准残基名称映射
-            pdb_res_names = {
-                'pA': 'ALA', 'pR': 'ARG', 'pN': 'ASN', 'pD': 'ASP', 'pC': 'CYS',
-                'pQ': 'GLN', 'pE': 'GLU', 'pG': 'GLY', 'pH': 'HIS', 'pI': 'ILE',
-                'pL': 'LEU', 'pK': 'LYS', 'pM': 'MET', 'pF': 'PHE', 'pP': 'PRO',
-                'pS': 'SER', 'pT': 'THR', 'pW': 'TRP', 'pY': 'TYR', 'pV': 'VAL',
-                'rU': 'U',   # RNA
-            }
-            
-            # 重建拓扑（使用标准 PDB 命名，无 bonds）
-            for chain in simulation.topology.chains():
-                new_chain = topology_no_conect.addChain(id=chain.id)
-                for residue in chain.residues():
-                    orig_res_name = residue.name
-                    std_res_name = pdb_res_names.get(orig_res_name, orig_res_name)
-                    new_residue = topology_no_conect.addResidue(std_res_name, new_chain, 
-                                                                 residue.id, residue.insertionCode)
-                    for atom in residue.atoms():
-                        orig_atom_name = atom.name
-                        std_atom_name = pdb_atom_names.get(orig_atom_name, orig_atom_name)
-                        topology_no_conect.addAtom(std_atom_name, atom.element, new_residue)
-            
-            with open(final_pdb_no_conect, 'w') as f:
-                PDBFile.writeFile(
-                    topology_no_conect,
-                    positions_final,
-                    f
-                )
-            print(f"  保存最终结构 (不含 CONECT, 标准 PDB 格式): {final_pdb_no_conect}")
-            
-            # 复制不带 CONECT 的版本到根目录
-            final_pdb_root_no_conect = os.path.join(cg_root_dir, 'final_no_conect.pdb')
-            shutil.copy2(final_pdb_no_conect, final_pdb_root_no_conect)
-            print(f"  复制无 CONECT 结构到: {final_pdb_root_no_conect}")
+            # 复制文件到标准位置
+            shutil.copy(final_pdb, os.path.join(output_dir, 'preequil_final.pdb'))
 
             # 保存系统 XML
             system_xml = os.path.join(output_dir, 'system.xml')
             with open(system_xml, 'w') as f:
-                f.write(XmlSerializer.serialize(system))
-            print(f"  保存系统 XML: {system_xml}")
+                f.write(mm.XmlSerializer.serialize(system))
+
+            # 保存检查点
+            shutil.copy(os.path.join(output_dir, 'restart.chk'), os.path.join(output_dir, 'final.chk'))
+
+            # 打印结果摘要
+            print(f"\n  ✓ Simulation completed!")
+            print(f"  Final structure: {final_pdb}")
+            print(f"  Trajectory: {xtc_file}")
+            
+            # 打印最终能量
+            final_energy = state_final.getPotentialEnergy()
+            print(f"  Final potential energy: {final_energy}")
+            print(f"  Final energy per particle: {final_energy.value_in_unit(unit.kilojoule_per_mole) / system.getNumParticles():.3f} kJ/mol")
 
             result.success = True
+            result.output_dir = output_dir
             result.trajectory = xtc_file
             result.structure = final_pdb
-            result.output_dir = output_dir
-
-            print(f"  Mpipi-Recharged 输出目录: {output_dir}")
-
-        except ImportError as e:
-            result = SimulationResult()
-            result.success = False
-            result.errors.append(f"ms2_OpenMpipi not installed: {e}")
-            result.output_dir = output_dir
-            print(f"  ✗ Mpipi-Recharged simulation failed: ms2_OpenMpipi not available")
-            import traceback
-            traceback.print_exc()
+            result.errors = []
 
         except Exception as e:
-            result = SimulationResult()
-            result.success = False
-            result.errors.append(str(e))
-            result.output_dir = output_dir
-            print(f"  ✗ Mpipi-Recharged simulation failed: {e}")
             import traceback
-            traceback.print_exc()
+            print(f"\n  ✗ Mpipi-Recharged simulation failed: {e}")
+            if kwargs.get('verbose', False):
+                traceback.print_exc()
+            
+            result.success = False
+            result.output_dir = output_dir
+            result.errors = [str(e)]
 
         finally:
             self.is_running = False
 
-        self._result = result
         return result
-
+    
     def _build_globular_indices_dict(self) -> Dict[str, list]:
         """
         从 config.components 构建 globular_indices_dict
@@ -2570,24 +2942,23 @@ Output Files:
         """
         准备 Mpipi-Recharged 输出目录
 
-        输出目录结构：{output_dir}/{system_name}_CG/Mpipi-Recharged/
-        与 equilibration 保持同一级别（与 COCOMO runner 一致）
+        输出目录结构：{output_dir}/Mpipi-Recharged/
+        CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
 
         期望结构：
-        {output_dir}/{system_name}_CG/
+        {system_name}_CG/
         ├── Mpipi-Recharged/     # 主模拟输出
         │   ├── trajectory.xtc
         │   ├── final.pdb
         │   └── ...
+        ├── final.pdb            # 复制到根目录
         └── equilibration/       # 预平衡输出（由 _run_pre_equilibration 创建）
             └── raw/
                 └── ...
         """
-        # CG 目录（包含 equilibration 和 Mpipi-Recharged）
-        cg_dir = os.path.join(self.output_dir, f"{self.config.system_name}_CG")
-        
+        # CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
         # Mpipi-Recharged 主模拟输出目录
-        mpipi_dir = os.path.join(cg_dir, 'Mpipi-Recharged')
+        mpipi_dir = os.path.join(self.output_dir, 'Mpipi-Recharged')
 
         # 备份旧结果
         import shutil

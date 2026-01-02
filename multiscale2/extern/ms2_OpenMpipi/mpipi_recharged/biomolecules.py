@@ -14,6 +14,9 @@ import openmm as mm
 import openmm.unit as unit
 import mdtraj as md
 import os
+import hashlib
+import json
+import pickle
 
 from .coordinate_building import generate_spiral_coords, parse_pdb
 from .system_building import get_mpipi_system
@@ -136,10 +139,47 @@ class CGBiomolecule:
                               0*unit.dalton)
         return system
 
+    def _get_cache_filename(self, simulation_time, T, csx, cache_dir='.relaxed_monomers'):
+        """
+        Generate a cache filename based on molecule properties and simulation parameters.
+        
+        Args:
+            simulation_time (Quantity): Duration of the simulation.
+            T (Quantity): Temperature.
+            csx (float): Ionic strength in mM.
+            cache_dir (str): Directory to store cache files.
+        
+        Returns:
+            tuple: (cache_dir, cache_file) paths
+        """
+        # Create a unique identifier from sequence, globular_indices, and simulation params
+        cache_key = {
+            'chain_id': self.chain_id,
+            'sequence': self.sequence,
+            'globular_indices': self.globular_indices if hasattr(self, 'globular_indices') else None,
+            'simulation_time_ns': simulation_time.value_in_unit(unit.nanosecond),
+            'T_kelvin': T.value_in_unit(unit.kelvin),
+            'csx_mM': csx
+        }
+        
+        # Create hash from cache key
+        cache_str = json.dumps(cache_key, sort_keys=True)
+        cache_hash = hashlib.md5(cache_str.encode()).hexdigest()[:12]
+        
+        cache_filename = f"{self.chain_id}_{cache_hash}.pkl"
+        
+        # Create cache directory if it doesn't exist
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+        
+        return cache_dir, os.path.join(cache_dir, cache_filename)
+    
     def get_compact_model(self, 
                           simulation_time=5*unit.nanosecond, 
                           T=280*unit.kelvin, 
-                          csx=150):
+                          csx=150,
+                          use_cache=True,
+                          cache_dir='.relaxed_monomers'):
         """
         Relax (compactify) this biomolecule by simulating it in isolation. 
 
@@ -151,7 +191,25 @@ class CGBiomolecule:
             simulation_time (Quantity, optional): Duration of the simulation (default 5 ns).
             T (Quantity, optional): Temperature (default 280 K).
             csx (float, optional): Ionic strength in mM (default 150).
+            use_cache (bool, optional): Whether to use cached results if available (default True).
+            cache_dir (str, optional): Directory to store cache files (default '.relaxed_monomers').
         """
+        # Check cache first
+        if use_cache:
+            cache_dir_path, cache_file = self._get_cache_filename(simulation_time, T, csx, cache_dir)
+            if os.path.exists(cache_file):
+                print(f"  Loading cached relaxed structure from {cache_file}...", flush=True)
+                try:
+                    with open(cache_file, 'rb') as f:
+                        cache_data = pickle.load(f)
+                    self.min_rg_coords = cache_data['min_rg_coords']
+                    self.min_rg = cache_data['min_rg']
+                    self.max_rg = cache_data['max_rg']
+                    print(f"  ✓ Loaded cached structure (Rg: {self.min_rg:.3f} nm)", flush=True)
+                    return
+                except Exception as e:
+                    print(f"  Warning: Failed to load cache ({e}), regenerating...", flush=True)
+        
         # Build system
         system = self.create_system(T, csx)
 
@@ -187,6 +245,21 @@ class CGBiomolecule:
         self.min_rg_coords = traj.xyz[min_rg_index]
         self.min_rg = rg_values[min_rg_index]
         self.max_rg = np.max(rg_values)
+
+        # Save to cache
+        if use_cache:
+            cache_dir_path, cache_file = self._get_cache_filename(simulation_time, T, csx, cache_dir)
+            try:
+                cache_data = {
+                    'min_rg_coords': self.min_rg_coords,
+                    'min_rg': self.min_rg,
+                    'max_rg': self.max_rg
+                }
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(cache_data, f)
+                print(f"  ✓ Saved relaxed structure to cache: {cache_file}", flush=True)
+            except Exception as e:
+                print(f"  Warning: Failed to save cache ({e})", flush=True)
 
         # Clean up
         os.remove(temp_traj_file)

@@ -16,7 +16,7 @@ from ..src import CGSimulationConfig, CGComponent, ComponentType, TopologyType
 
 
 # Available force fields
-FORCE_FIELDS = ['calvados', 'hps', 'moff', 'cocomo', 'openmpipi']
+FORCE_FIELDS = ['calvados', 'hps', 'cocomo', 'mpipi_recharged']
 
 
 def validate_force_field(ctx, param, value):
@@ -34,6 +34,12 @@ def validate_force_field(ctx, param, value):
 
 @click.command('init')
 @click.argument('name', type=str, required=False)
+@click.option(
+    '--ff', '-ff',
+    type=click.Choice(['calvados', 'hps', 'cocomo', 'mpipi_recharged']),
+    default='calvados',
+    help='Force field (default: calvados)'
+)
 @click.option(
     '--type', '-t',
     type=click.Choice(['idp', 'mdp', 'mixed']),
@@ -58,7 +64,7 @@ def validate_force_field(ctx, param, value):
     default=10,
     help='Number of molecules per component (default: 10)'
 )
-def init_command(name: str, type: str, topol: str, output: str, nmol: int):
+def init_command(name: str, ff: str, type: str, topol: str, output: str, nmol: int):
     """
     Initialize a new CG simulation configuration template.
     
@@ -139,6 +145,7 @@ def init_command(name: str, type: str, topol: str, output: str, nmol: int):
     click.echo(f"{'=' * 60}")
     click.echo(f"\n  File: {config_file}")
     click.echo(f"  System: {name}")
+    click.echo(f"  Force field: {ff}")
     click.echo(f"  Topology: {topol}")
     click.echo(f"  Components: {len(components)} ({component_note})")
     click.echo(f"  Molecules per component: {nmol}")
@@ -146,7 +153,7 @@ def init_command(name: str, type: str, topol: str, output: str, nmol: int):
     click.echo(f"\n  Next steps:")
     click.echo(f"    1. Edit {config_file}")
     click.echo(f"    2. Add your input files (FASTA/PDB) to 'input/' directory")
-    click.echo(f"    3. Run: ms2 cg -f {config_file}")
+    click.echo(f"    3. Run: ms2 cg -f {config_file} -ff {ff}")
     click.echo()
 
 
@@ -205,7 +212,8 @@ def cg_command(
     
     Examples:
         ms2 cg -f config.yaml                 # Run with calvados
-        ms2 cg -f config.yaml -ff hps         # Run with HPS force field
+        ms2 cg -f config.yaml -ff mpipi_recharged  # Run with Mpipi-Recharged
+        ms2 cg -f config.yaml -ff cocomo      # Run with COCOMO
         ms2 cg -f config.yaml --dry-run       # Generate config only
         ms2 cg -f config.yaml -o ./results    # Custom output directory
     """
@@ -322,6 +330,8 @@ def cg_command(
             sys.exit(1)
 
         try:
+            # Call runner method (uses default parameters)
+            # For mpipi_recharged, defaults to use_gmx_insert=True, gmx_radius=0.35
             result = getattr(sim, runner_method)()
 
             # Use the result output directory
