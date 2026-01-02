@@ -7,7 +7,6 @@ A unified interface for coarse-grained molecular dynamics simulations.
 Available runners:
 - run_calvados: CALVADOS force field
 - run_hps: HPS-Urry force field (OpenABC)
-- run_moff: MOFF force field (OpenABC)
 - run_cocomo: COCOMO force field
 - run_openmpipi: OpenMpipi force field
 

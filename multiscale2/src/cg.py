@@ -372,7 +372,7 @@ class CGSimulationConfig:
         # 获取配置文件的目录，用于解析相对路径
         config_dir = os.path.dirname(os.path.abspath(path))
 
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             d = yaml.safe_load(f)
         d['config_path'] = path
 
@@ -444,6 +444,7 @@ class TopologyInfo:
         molecule_indices: 每个残基属于哪个分子 (1, 2, 3, ...)
         component_names: 每个残基属于哪个组件
         local_residue_indices: 在单链中的残基编号 (1-based)
+        sasa_values: 每个残基的SASA值（从全原子结构计算）
     """
     global_sequence: str = ""
     chain_ids: List[int] = field(default_factory=list)
@@ -451,6 +452,7 @@ class TopologyInfo:
     molecule_indices: List[int] = field(default_factory=list)
     component_names: List[str] = field(default_factory=list)
     local_residue_indices: List[int] = field(default_factory=list)
+    sasa_values: List[float] = field(default_factory=list)
 
 
 # =============================================================================
@@ -653,30 +655,160 @@ class CGSimulator:
                 comp_names.extend([comp.name] * len(self._get_component_sequence(comp)))
         return comp_names
 
-    def _get_sasa_values(self) -> Optional[np.ndarray]:
+    def _compute_sasa_for_component(self, comp: CGComponent) -> List[float]:
         """
-        尝试加载 SASA 值
+        为 MDP 组件计算 SASA 值
 
-        首先检查 config.output_dir 下的 surface 文件，
-        如果找不到则返回 None（使用默认值）
+        使用 mdsim 库从全原子 PDB 文件计算每个残基的 SASA。
+        对于 IDP 组件，返回默认 SASA 值。
+
+        Args:
+            comp: CGComponent 实例
 
         Returns:
-            SASA 值数组，如果未找到则返回 None
+            SASA 值列表（每个残基一个值）
         """
-        surface_file = os.path.join(self.config.output_dir, 'surface')
+        # IDP 使用默认 SASA 值
+        if comp.type == ComponentType.IDP:
+            nres = len(self._get_component_sequence(comp))
+            return [5.0] * nres
 
+        # MDP 需要全原子 PDB 文件
+        if comp.type == ComponentType.MDP:
+            if not comp.fpdb:
+                raise ValueError(f"Component '{comp.name}' is MDP but no fpdb file specified")
+
+            # 尝试导入 system_handling 模块
+            try:
+                from multiscale2.extern.cocomo.src.cocomo.system_handling import ComponentType as SASAComponentType
+            except ImportError:
+                warnings.warn(
+                    f"Could not import cocomo.system_handling for SASA calculation. "
+                    f"Using default SASA values for component '{comp.name}'.",
+                    UserWarning
+                )
+                nres = len(self._get_component_sequence(comp))
+                return [5.0] * nres
+
+            try:
+                # 创建 ComponentType 并自动计算 SASA
+                ctype = SASAComponentType(
+                    name=comp.name,
+                    pdb=comp.fpdb,
+                    getsasa="auto",  # 使用 mdsim 自动计算
+                    mask_sasa_bydomain=True  # 按 domain 掩码
+                )
+
+                # 提取 SASA 值列表
+                sasa_list = [val for _, val in ctype.sasa]
+
+                # 检查是否成功计算了 SASA
+                nres = len(self._get_component_sequence(comp))
+                if len(sasa_list) != nres:
+                    warnings.warn(
+                        f"SASA length ({len(sasa_list)}) doesn't match sequence length ({nres}) "
+                        f"for component '{comp.name}'. Padding with default values.",
+                        UserWarning
+                    )
+                    # 填充或截断到正确的长度
+                    if len(sasa_list) < nres:
+                        sasa_list.extend([5.0] * (nres - len(sasa_list)))
+                    else:
+                        sasa_list = sasa_list[:nres]
+
+                return sasa_list
+
+            except Exception as e:
+                warnings.warn(
+                    f"Failed to compute SASA for component '{comp.name}': {e}. "
+                    f"Using default SASA values.",
+                    UserWarning
+                )
+                nres = len(self._get_component_sequence(comp))
+                return [5.0] * nres
+
+        # 默认情况
+        nres = len(self._get_component_sequence(comp))
+        return [5.0] * nres
+
+    def _compute_all_sasa_values(self) -> List[float]:
+        """
+        计算整个系统的所有 SASA 值
+
+        为每个组件计算 SASA 值，并根据分子数量重复。
+
+        Returns:
+            SASA 值列表，长度与全局序列相同
+        """
+        all_sasa = []
+
+        for comp in self.config.components:
+            # 计算单链的 SASA
+            single_sasa = self._compute_sasa_for_component(comp)
+
+            # 根据分子数重复
+            for _ in range(comp.nmol):
+                all_sasa.extend(single_sasa)
+
+        return all_sasa
+
+    def _get_sasa_values(self) -> Optional[np.ndarray]:
+        """
+        尝试加载或计算 SASA 值
+
+        优先从文件加载，如果文件不存在则计算。
+        对于 MDP 组件，使用 mdsim 从全原子 PDB 计算。
+        对于 IDP 组件，使用默认 SASA 值。
+
+        Returns:
+            SASA 值数组，如果无法计算则返回 None
+        """
+        # 尝试加载缓存文件
+        surface_file = os.path.join(self.output_dir or self.config.output_dir, 'surface')
         if os.path.exists(surface_file):
             print(f"  加载 SASA 数据: {surface_file}")
             return np.loadtxt(surface_file)
 
         # 尝试其他可能的路径
-        alt_surface_file = os.path.join(self.config.output_dir, 'sasa_values.txt')
+        alt_surface_file = os.path.join(self.output_dir or self.config.output_dir, 'sasa_values.txt')
         if os.path.exists(alt_surface_file):
             print(f"  加载 SASA 数据: {alt_surface_file}")
             return np.loadtxt(alt_surface_file)
 
+        # 如果没有缓存文件，尝试计算
+        try:
+            sasa = self._compute_all_sasa_values()
+            if sasa:
+                print(f"  计算得到 {len(sasa)} 个 SASA 值")
+                return np.array(sasa)
+        except Exception as e:
+            print(f"  SASA 计算失败: {e}")
+
         print(f"  未找到 SASA 文件，使用默认值")
         return None
+
+    def get_sasa_values(self) -> List[float]:
+        """
+        获取整个系统的 SASA 值列表
+
+        返回与全局序列等长的 SASA 值列表。
+        对于 MDP 组件，从全原子 PDB 文件计算；
+        对于 IDP 组件，使用默认 SASA 值。
+
+        Returns:
+            SASA 值列表
+        """
+        info = self._get_topology_info()
+        if info.sasa_values:
+            return info.sasa_values
+
+        # 如果拓扑信息中没有，计算
+        sasa = self._compute_all_sasa_values()
+
+        # 缓存到拓扑信息
+        self._topology_info.sasa_values = sasa
+
+        return sasa
 
     def _get_topology_info(self) -> TopologyInfo:
         """
@@ -694,6 +826,7 @@ class CGSimulator:
         构建拓扑信息
 
         构建全局序列、链ID、folded domain等信息。
+        对于 MDP 组件，从全原子 PDB 文件计算 SASA 值。
 
         Returns:
             TopologyInfo 实例
@@ -704,9 +837,15 @@ class CGSimulator:
         molecule_indices = []
         component_names = []
         local_residue_indices = []
+        sasa_values = []
 
         # 当前链ID（从1开始）
         current_chain_id = 1
+
+        # 预计算每个组件的 SASA 值（只计算一次）
+        component_sasa = {}
+        for comp in self.config.components:
+            component_sasa[comp.name] = self._compute_sasa_for_component(comp)
 
         for comp in self.config.components:
             # 获取单链序列
@@ -716,6 +855,9 @@ class CGSimulator:
 
             # 获取单链的folded domain信息
             single_folded = self._get_component_folded_domains(comp, nres)
+
+            # 获取该组件的 SASA 值
+            single_sasa = component_sasa.get(comp.name, [5.0] * nres)
 
             # 为每个分子构建信息
             for mol_idx in range(nmol):
@@ -729,6 +871,7 @@ class CGSimulator:
                     molecule_indices.append(current_chain_id)  # 链ID就是分子ID
                     component_names.append(comp.name)
                     local_residue_indices.append(res_idx + 1)  # 1-based
+                    sasa_values.append(single_sasa[res_idx])
 
                 current_chain_id += 1
 
@@ -739,6 +882,7 @@ class CGSimulator:
             molecule_indices=molecule_indices,
             component_names=component_names,
             local_residue_indices=local_residue_indices,
+            sasa_values=sasa_values,
         )
 
     def _get_component_sequence(self, comp: CGComponent) -> str:
@@ -1744,12 +1888,50 @@ Output Files:
                 resources='CUDA' if gpu_id >= 0 else 'CPU'
             )
 
+            # 设置 _topology_info 以便 ENM 计算使用
+            # 使用 SimpleNamespace 创建带有属性的对象
+            from types import SimpleNamespace
+            cocomo._topology_info = SimpleNamespace(
+                global_sequence=topology_info['global_sequence'],
+                chain_ids=topology_info['chain_ids'],
+                is_folded=topology_info['folded_domains'],
+                sasa_values=topology_info.get('sasa_values', [])
+            )
+
             # 创建 OpenMM 系统
             system, topology = cocomo.create_system()
 
-            # 创建 Simulation 对象
-            platform = Platform.getPlatformByName('CUDA' if gpu_id >= 0 else 'CPU')
-            properties = {'DeviceIndex': str(gpu_id)} if gpu_id >= 0 else {}
+            # 创建 Simulation 对象 (优先使用config指定的platform)
+            config_platform = self.config.simulation.platform
+            platform_name = config_platform.value if hasattr(config_platform, 'value') else str(config_platform)
+            
+            # 平台选择：优先使用config指定的平台，支持自动回退
+            if gpu_id >= 0:
+                # 用户想要使用GPU
+                try:
+                    platform = Platform.getPlatformByName(platform_name)
+                    properties = {'DeviceIndex': str(gpu_id)}
+                    print(f"  使用 {platform_name} 平台")
+                except Exception:
+                    # 尝试其他GPU平台
+                    for fallback in ['CUDA', 'OpenCL']:
+                        if fallback != platform_name:
+                            try:
+                                platform = Platform.getPlatformByName(fallback)
+                                properties = {'DeviceIndex': str(gpu_id)}
+                                print(f"  {platform_name} 不可用，回退到 {fallback}")
+                                break
+                            except:
+                                continue
+                    else:
+                        print(f"  GPU 不可用，回退到 CPU")
+                        platform = Platform.getPlatformByName('CPU')
+                        properties = {}
+            else:
+                # 用户想要使用CPU
+                platform = Platform.getPlatformByName('CPU')
+                properties = {}
+                print("  使用 CPU 平台")
 
             # 使用 LangevinIntegrator（与 Legacy 版本一致）
             # 温度从 config 读取，摩擦系数 0.01/ps，时间步长 0.01 ps
@@ -1847,6 +2029,12 @@ Output Files:
                 )
             print(f"  保存最终结构: {final_pdb}")
 
+            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
+            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
+            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            shutil.copy2(final_pdb, final_pdb_root)
+            print(f"  复制最终结构到: {final_pdb_root}")
+
             # 保存系统 XML
             system_xml = os.path.join(output_dir, 'system.xml')
             with open(system_xml, 'w') as f:
@@ -1902,14 +2090,20 @@ Output Files:
             'task_name': 'COCOMO',
         }
     
-    def run_openmpipi(self, gpu_id: int = 0, **kwargs) -> SimulationResult:
+    def run_mpipi_recharged(self, gpu_id: int = 0, **kwargs) -> SimulationResult:
         """
-        运行 OpenMpipi 模拟
+        运行 Mpipi-Recharged 模拟
 
         自动进行预平衡（使用 CALVADOS 构建初始结构）：
         1. 用 CALVADOS 力场构建初始 CG 结构
         2. 对 MDP 蛋白进行短时间模拟
-        3. 然后切换到 OpenMpipi 力场进行正式模拟
+        3. 然后切换到 Mpipi-Recharged 力场进行正式模拟
+
+        Mpipi-Recharged 力场特点：
+        - 基于残基对查表的短程势能函数
+        - Yukawa 静电屏蔽（Debye 长度计算）
+        - IDR 区域使用简谐键约束
+        - 球形结构域使用 ENM 弹性网络
 
         预平衡参数（硬编码，可通过 kwargs 覆盖）：
         - steps: 预平衡步数（默认 100000）
@@ -1921,7 +2115,7 @@ Output Files:
         Args:
             gpu_id: GPU 设备 ID
             **kwargs: 额外参数
-                - csx: 离子强度（mM，默认 150）
+                - csx: 离子强度（mM，默认从 config.ionic * 1000）
                 - preequil_steps: 预平衡步数
                 - preequil_mapping: 预平衡映射方式 ('ca' 或 'com')
                 - preequil_k_restraint: 预平衡约束力常数
@@ -1931,57 +2125,486 @@ Output Files:
         Returns:
             SimulationResult
         """
+        from openmm.app import PDBFile
+        from openmm import Platform, LangevinMiddleIntegrator, Vec3
+        import openmm as mm
+        from openmm import unit
+        from openmm.unit import kelvin, picoseconds, nanometer
+
         self._ensure_setup()
         self._ensure_not_running()
 
-        # 预平衡参数（硬编码，可覆盖）
-        preequil_steps = kwargs.get('preequil_steps', 100000)
-        preequil_mapping = kwargs.get('preequil_mapping', 'ca')
-        preequil_k_restraint = kwargs.get('preequil_k_restraint', 10000.0)
-        preequil_use_com = kwargs.get('preequil_use_com', True)
-        # 预平衡平台：优先使用 kwargs 中指定的值，否则使用 config 中的设置（默认为 CUDA）
-        preequil_platform = kwargs.get('preequil_platform', self.config.simulation.platform)
+        # Mpipi-Recharged 使用 OpenMpipi 原生的 relaxation 流程，跳过 CALVADOS 预平衡
+        print("\n  使用 OpenMpipi 原生流程构建系统")
 
-        # 预平衡（使用 CALVADOS 构建初始结构）
-        preequil_pdb = self._run_pre_equilibration(
-            gpu_id=gpu_id,
-            steps=preequil_steps,
-            mapping=preequil_mapping,
-            k_restraint=preequil_k_restraint,
-            use_com=preequil_use_com,
-            platform=preequil_platform,
-        )
-        if preequil_pdb:
-            print(f"  [OpenMpipi] 使用预平衡结构: {preequil_pdb}")
+        # 准备输出目录
+        dirs = self._prepare_mpipi_output()
+        output_dir = dirs['output_dir']
 
         self.is_running = True
         result = SimulationResult()
-        result.output_dir = self.output_dir
 
         try:
-            print(f"\n[OpenMpipi] Running simulation...")
-            print(f"  GPU ID: {gpu_id}")
+            print(f"\n[Mpipi-Recharged] Running simulation...")
 
-            # TODO: 实现 OpenMpipi runner
-            # 使用 OpenMpipi 包
+            # 从 ms2_OpenMpipi 导入 biomolecule 类和新函数
+            from multiscale2.extern.ms2_OpenMpipi import MDP, IDP, build_mpipi_recharged_system_from_chains
+            import openmm.unit as openmm_unit
+
+            # 从 config.components 构建 biomolecule 对象
+            print("\n  构建 biomolecule 对象...")
+            chain_objects = []
+            for comp in self.config.components:
+                # 获取序列
+                if comp.type == ComponentType.IDP:
+                    # IDP 从 fasta 读取序列
+                    if comp.ffasta:
+                        with open(comp.ffasta, 'r') as f:
+                            fasta_content = f.read()
+                        # 解析 FASTA（只提取匹配组件名的序列）
+                        lines = fasta_content.strip().split('\n')
+                        sequence = None
+                        current_seq_lines = []
+                        in_target_sequence = False
+                        
+                        for line in lines:
+                            if line.startswith('>'):
+                                # 如果上一段是我们要的序列，保存它
+                                if in_target_sequence:
+                                    sequence = ''.join(current_seq_lines)
+                                    break
+                                # 检查这一行是否是我们要找的序列
+                                in_target_sequence = (comp.name in line.replace('>', '').strip())
+                                current_seq_lines = []
+                            elif in_target_sequence:
+                                current_seq_lines.append(line.strip())
+                        
+                        # 处理最后一个序列
+                        if sequence is None and in_target_sequence:
+                            sequence = ''.join(current_seq_lines)
+                        
+                        if sequence is None:
+                            print(f"    ⚠️  {comp.name}: 未在 FASTA 中找到序列，跳过")
+                            continue
+                    else:
+                        continue
+                    
+                    # 创建 IDP 对象
+                    idp = IDP(comp.name, sequence)
+                    chain_objects.append((comp, idp))
+                    print(f"    {comp.name}: IDP, {len(sequence)} residues")
+
+                elif comp.type == ComponentType.MDP:
+                    # MDP 从 fpdb 读取结构和序列
+                    if not comp.fpdb:
+                        continue
+                    
+                    # 解析 fdomains 获取折叠域索引
+                    domains = self._parse_fdomains(comp.fdomains)
+                    
+                    # 从 PDB 读取序列（MDP 永远使用 PDB 中的序列）
+                    # 注意：PDB 残基名是三字母码，需要转换为单字母码
+                    pdb_temp = PDBFile(comp.fpdb)
+                    three_to_one = {
+                        'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
+                        'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
+                        'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
+                        'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
+                    }
+                    sequence = []
+                    for res in pdb_temp.topology.residues():
+                        if res.name in three_to_one:
+                            sequence.append(three_to_one[res.name])
+                    sequence = ''.join(sequence)
+                    
+                    # 创建 MDP 对象
+                    mdp = MDP(comp.name, sequence, domains, comp.fpdb)
+                    chain_objects.append((comp, mdp))
+                    print(f"    {comp.name}: MDP, {len(sequence)} residues, {len(domains)} domains")
+
+            if not chain_objects:
+                raise ValueError("No valid biomolecules could be constructed for Mpipi simulation.")
+
+            # 构建 chain_info 字典
+            print("\n  构建 chain_info 字典...")
+            chain_info = {}
+            for comp, biomol in chain_objects:
+                chain_info[biomol] = comp.nmol
+                print(f"    {comp.name}: {comp.nmol} copies")
+
+            # 调用 build_mpipi_recharged_system_from_chains
+            # 这个函数会：1) relax 每个单体 2) build model 3) 添加力场
+            csx = self.config.ionic * 1000  # M -> mM
+            is_periodic = self.config.topol.value in ['cubic', 'slab']
+            box_size = self.config.box  # 使用 config 指定的盒子大小
+            
+            print("\n  构建 Mpipi-Recharged 系统（包含 relaxation + model building + 力场）...")
+            system, model = build_mpipi_recharged_system_from_chains(
+                chain_info=chain_info,
+                box_size=box_size,
+                T=self.config.temperature * openmm_unit.kelvin,
+                csx=csx,
+                CM_remover=True,
+                periodic=is_periodic
+            )
+            print(f"  系统构建完成: {system.getNumParticles()} 粒子, {system.getNumForces()} 力")
+
+            # 从 model 获取 topology 和 positions
+            topology = model.topology
+            positions = model.positions
+
+            # 创建 Simulation 对象 (优先使用config指定的platform)
+            config_platform = self.config.simulation.platform
+            platform_name = config_platform.value if hasattr(config_platform, 'value') else str(config_platform)
+            
+            # 平台选择：优先使用config指定的平台，支持自动回退
+            if gpu_id >= 0:
+                # 用户想要使用GPU
+                try:
+                    platform = Platform.getPlatformByName(platform_name)
+                    properties = {'DeviceIndex': str(gpu_id)}
+                    print(f"  使用 {platform_name} 平台")
+                except Exception:
+                    # 尝试其他GPU平台
+                    for fallback in ['CUDA', 'OpenCL']:
+                        if fallback != platform_name:
+                            try:
+                                platform = Platform.getPlatformByName(fallback)
+                                properties = {'DeviceIndex': str(gpu_id)}
+                                print(f"  {platform_name} 不可用，回退到 {fallback}")
+                                break
+                            except:
+                                continue
+                    else:
+                        print(f"  GPU 不可用，回退到 CPU")
+                        platform = Platform.getPlatformByName('CPU')
+                        properties = {}
+            else:
+                # 用户想要使用CPU
+                platform = Platform.getPlatformByName('CPU')
+                properties = {}
+                print("  使用 CPU 平台")
+
+            # 使用 LangevinMiddleIntegrator（与 OpenMpipi 示例一致）
+            # 温度从 config 读取，摩擦系数 0.01/ps，时间步长 0.01 ps
+            temperature = self.config.temperature
+            integrator = LangevinMiddleIntegrator(
+                temperature * kelvin,
+                0.01 / picoseconds,
+                0.01 * picoseconds
+            )
+
+            simulation = Simulation(
+                topology,
+                system,
+                integrator=integrator,
+                platform=platform,
+                platformProperties=properties
+            )
+
+            # 设置初始坐标
+            simulation.context.setPositions(positions)
+
+            # 如果系统有周期性边界，设置盒子向量
+            if is_periodic:
+                box_size = self.config.box
+                box_vecs = [
+                    mm.Vec3(x=box_size[0], y=0.0, z=0.0),
+                    mm.Vec3(x=0.0, y=box_size[1], z=0.0),
+                    mm.Vec3(x=0.0, y=0.0, z=box_size[2])
+                ] * unit.nanometer
+                simulation.context.setPeriodicBoxVectors(*box_vecs)
+
+            # 设置初始速度
+            simulation.context.setVelocitiesToTemperature(temperature * kelvin)
+
+            # 保存 minimization 前的结构（用于调试）
+            debug_pdb_before_min = os.path.join(output_dir, 'before_minimization.pdb')
+            with open(debug_pdb_before_min, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions,
+                    f
+                )
+            print(f"  保存 minimization 前结构: {debug_pdb_before_min}")
+
+            # 能量最小化
+            print("  Running energy minimization...")
+            simulation.minimizeEnergy(tolerance=1.0 * kilojoule / mole / nanometers)
+            print("  Energy minimization completed")
+
+            # 运行模拟
+            wfreq = self.config.simulation.wfreq
+            xtc_file = os.path.join(output_dir, 'trajectory.xtc')
+            log_file = os.path.join(output_dir, 'simulation.log')
+
+            # 添加报告器
+            simulation.reporters.append(
+                XTCReporter(xtc_file, wfreq)
+            )
+            simulation.reporters.append(
+                StateDataReporter(
+                    log_file,
+                    wfreq,
+                    step=True,
+                    potentialEnergy=True,
+                    kineticEnergy=True,
+                    totalEnergy=True,
+                    temperature=True,
+                    volume=True,
+                )
+            )
+
+            # 运行模拟（使用 tqdm 显示进度）
+            total_steps = self.config.simulation.steps
+            print(f"  开始模拟: {total_steps} 步")
+
+            from tqdm import tqdm
+            n_batches = 10
+            batch_size = total_steps // n_batches
+
+            for _ in tqdm(range(n_batches), desc="Mpipi-Recharged"):
+                simulation.step(batch_size)
+                simulation.saveCheckpoint(os.path.join(output_dir, 'restart.chk'))
+
+            # 处理剩余步数
+            remaining = total_steps % n_batches
+            if remaining > 0:
+                simulation.step(remaining)
+
+            print(f"  模拟完成!")
+
+            # 获取最终状态（包含 PBC 信息）
+            state_final = simulation.context.getState(
+                getPositions=True,
+                getVelocities=True,
+                getForces=True,
+                getEnergy=True,
+                enforcePeriodicBox=True
+            )
+
+            # 获取最终的位置和盒子向量
+            positions_final = state_final.getPositions()
+            box_vectors = state_final.getPeriodicBoxVectors()
+
+            # 在拓扑上设置盒子向量
+            simulation.topology.setPeriodicBoxVectors(box_vectors)
+
+            # 保存最终结构为 PDB 格式（包含成键信息 - CONECT 记录）
+            final_pdb = os.path.join(output_dir, 'final.pdb')
+            with open(final_pdb, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions_final,
+                    f
+                )
+            print(f"  保存最终结构 (含 CONECT): {final_pdb}")
+
+            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
+            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
+            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            shutil.copy2(final_pdb, final_pdb_root)
+            print(f"  复制最终结构到: {final_pdb_root}")
+
+            # 额外保存一个不带 CONECT 的版本（只保存坐标）
+            final_pdb_no_conect = os.path.join(output_dir, 'final_no_conect.pdb')
+            
+            # 复制拓扑对象（不复制 bonds）
+            from openmm.app import Topology
+            topology_no_conect = Topology()
+            topology_no_conect.setPeriodicBoxVectors(box_vectors)
+            
+            # 标准 PDB atom 名称映射
+            pdb_atom_names = {
+                'pA': 'CA', 'pR': 'CA', 'pN': 'CA', 'pD': 'CA', 'pC': 'CA',
+                'pQ': 'CA', 'pE': 'CA', 'pG': 'CA', 'pH': 'CA', 'pI': 'CA',
+                'pL': 'CA', 'pK': 'CA', 'pM': 'CA', 'pF': 'CA', 'pP': 'CA',
+                'pS': 'CA', 'pT': 'CA', 'pW': 'CA', 'pY': 'CA', 'pV': 'CA',
+                'rU': 'P',   # RNA 用磷原子
+            }
+            
+            # 标准残基名称映射
+            pdb_res_names = {
+                'pA': 'ALA', 'pR': 'ARG', 'pN': 'ASN', 'pD': 'ASP', 'pC': 'CYS',
+                'pQ': 'GLN', 'pE': 'GLU', 'pG': 'GLY', 'pH': 'HIS', 'pI': 'ILE',
+                'pL': 'LEU', 'pK': 'LYS', 'pM': 'MET', 'pF': 'PHE', 'pP': 'PRO',
+                'pS': 'SER', 'pT': 'THR', 'pW': 'TRP', 'pY': 'TYR', 'pV': 'VAL',
+                'rU': 'U',   # RNA
+            }
+            
+            # 重建拓扑（使用标准 PDB 命名，无 bonds）
+            for chain in simulation.topology.chains():
+                new_chain = topology_no_conect.addChain(id=chain.id)
+                for residue in chain.residues():
+                    orig_res_name = residue.name
+                    std_res_name = pdb_res_names.get(orig_res_name, orig_res_name)
+                    new_residue = topology_no_conect.addResidue(std_res_name, new_chain, 
+                                                                 residue.id, residue.insertionCode)
+                    for atom in residue.atoms():
+                        orig_atom_name = atom.name
+                        std_atom_name = pdb_atom_names.get(orig_atom_name, orig_atom_name)
+                        topology_no_conect.addAtom(std_atom_name, atom.element, new_residue)
+            
+            with open(final_pdb_no_conect, 'w') as f:
+                PDBFile.writeFile(
+                    topology_no_conect,
+                    positions_final,
+                    f
+                )
+            print(f"  保存最终结构 (不含 CONECT, 标准 PDB 格式): {final_pdb_no_conect}")
+            
+            # 复制不带 CONECT 的版本到根目录
+            final_pdb_root_no_conect = os.path.join(cg_root_dir, 'final_no_conect.pdb')
+            shutil.copy2(final_pdb_no_conect, final_pdb_root_no_conect)
+            print(f"  复制无 CONECT 结构到: {final_pdb_root_no_conect}")
+
+            # 保存系统 XML
+            system_xml = os.path.join(output_dir, 'system.xml')
+            with open(system_xml, 'w') as f:
+                f.write(XmlSerializer.serialize(system))
+            print(f"  保存系统 XML: {system_xml}")
 
             result.success = True
-            print(f"  ✓ OpenMpipi simulation completed (placeholder)")
+            result.trajectory = xtc_file
+            result.structure = final_pdb
+            result.output_dir = output_dir
+
+            print(f"  Mpipi-Recharged 输出目录: {output_dir}")
 
         except ImportError as e:
+            result = SimulationResult()
             result.success = False
-            result.errors.append(f"OpenMpipi not installed: {e}")
-            print(f"  ✗ OpenMpipi simulation failed: OpenMpipi not available")
+            result.errors.append(f"ms2_OpenMpipi not installed: {e}")
+            result.output_dir = output_dir
+            print(f"  ✗ Mpipi-Recharged simulation failed: ms2_OpenMpipi not available")
+            import traceback
+            traceback.print_exc()
+
         except Exception as e:
+            result = SimulationResult()
             result.success = False
             result.errors.append(str(e))
-            print(f"  ✗ OpenMpipi simulation failed: {e}")
+            result.output_dir = output_dir
+            print(f"  ✗ Mpipi-Recharged simulation failed: {e}")
+            import traceback
+            traceback.print_exc()
 
         finally:
             self.is_running = False
 
         self._result = result
         return result
+
+    def _build_globular_indices_dict(self) -> Dict[str, list]:
+        """
+        从 config.components 构建 globular_indices_dict
+
+        用于 OpenMpipi 的 get_mpipi_system 函数。
+        OpenMpipi 期望格式：{chain_id: [[start1, end1], [start2, end2], ...]}
+        其中每个 [start, end] 是一个折叠域的索引范围（inclusive）。
+        
+        注意：OpenMpipi 期望的是**局部索引**（相对于每个chain的0-based索引），
+        而不是全局系统索引。
+
+        Returns:
+            Dictionary mapping chain_id to list of domain ranges [start, end] (local indices)
+        """
+        globular_indices_dict = {}
+
+        # 获取链ID列表
+        chain_ids = self.get_chain_identifiers()
+
+        # 获取 folded domain 信息
+        folded_domains = self.get_folded_domains()
+
+        # 构建字典：{chain_id: [[start1, end1], [start2, end2], ...]}
+        # 首先收集所有链的起始位置（局部索引的基准）
+        chain_local_start = {}  # {chain_id: local_index_offset}
+        
+        for res_idx, chain_id in enumerate(chain_ids):
+            if chain_id not in chain_local_start:
+                chain_local_start[chain_id] = res_idx
+
+        # 遍历每个残基，检测连续的 folded 区域（域范围）
+        current_chain = None
+        domain_start = None  # 全局索引
+        domain_start_local = None  # 局部索引
+
+        for res_idx, (chain_id, is_folded) in enumerate(zip(chain_ids, folded_domains)):
+            if chain_id not in globular_indices_dict:
+                globular_indices_dict[chain_id] = []
+
+            # 新链开始，重置状态
+            if current_chain != chain_id:
+                if current_chain is not None and domain_start is not None:
+                    # 保存上一个域（使用局部索引）
+                    local_start = domain_start - chain_local_start[current_chain]
+                    local_end = (res_idx - 1) - chain_local_start[current_chain]
+                    globular_indices_dict[current_chain].append([local_start, local_end])
+                current_chain = chain_id
+                domain_start = None
+
+            # 如果是 folded domain，记录起始位置
+            if is_folded:
+                if domain_start is None:
+                    domain_start = res_idx
+            else:
+                # 如果之前在域中，现在结束了，保存域范围
+                if domain_start is not None:
+                    local_start = domain_start - chain_local_start[chain_id]
+                    local_end = (res_idx - 1) - chain_local_start[chain_id]
+                    globular_indices_dict[chain_id].append([local_start, local_end])
+                    domain_start = None
+
+        # 处理最后一个域（如果链末尾是 folded）
+        if current_chain is not None and domain_start is not None:
+            local_start = domain_start - chain_local_start[current_chain]
+            # 局部索引的结束位置是该链的最后一个残基
+            chain_length = sum(1 for cid in chain_ids if cid == current_chain)
+            local_end = chain_length - 1
+            globular_indices_dict[current_chain].append([local_start, local_end])
+
+        return globular_indices_dict
+
+    def _prepare_mpipi_output(self) -> Dict[str, str]:
+        """
+        准备 Mpipi-Recharged 输出目录
+
+        输出目录结构：{output_dir}/{system_name}_CG/Mpipi-Recharged/
+        与 equilibration 保持同一级别（与 COCOMO runner 一致）
+
+        期望结构：
+        {output_dir}/{system_name}_CG/
+        ├── Mpipi-Recharged/     # 主模拟输出
+        │   ├── trajectory.xtc
+        │   ├── final.pdb
+        │   └── ...
+        └── equilibration/       # 预平衡输出（由 _run_pre_equilibration 创建）
+            └── raw/
+                └── ...
+        """
+        # CG 目录（包含 equilibration 和 Mpipi-Recharged）
+        cg_dir = os.path.join(self.output_dir, f"{self.config.system_name}_CG")
+        
+        # Mpipi-Recharged 主模拟输出目录
+        mpipi_dir = os.path.join(cg_dir, 'Mpipi-Recharged')
+
+        # 备份旧结果
+        import shutil
+        from datetime import datetime
+
+        if os.path.exists(mpipi_dir):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_dir = f"{mpipi_dir}_backup_{timestamp}"
+            shutil.move(mpipi_dir, backup_dir)
+            print(f"  📁 备份旧结果到: {backup_dir}")
+
+        os.makedirs(mpipi_dir, exist_ok=True)
+
+        return {
+            'output_dir': mpipi_dir,
+            'task_name': 'Mpipi-Recharged',
+        }
     
     # -------------------------------------------------------------------------
     # Utility Methods
