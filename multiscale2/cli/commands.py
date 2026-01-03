@@ -16,7 +16,15 @@ from ..src import CGSimulationConfig, CGComponent, ComponentType, TopologyType
 
 
 # Available force fields
-FORCE_FIELDS = ['calvados', 'hps', 'cocomo', 'mpipi_recharged']
+FORCE_FIELDS = ['calvados', 'hps_urry', 'cocomo', 'mpipi_recharged']
+
+# Mapping from CLI force field names to internal runner method names
+FORCE_FIELD_TO_RUNNER = {
+    'calvados': 'calvados',
+    'hps_urry': 'hps',  # CLI uses hps_urry, but method is run_hps
+    'cocomo': 'cocomo',
+    'mpipi_recharged': 'mpipi_recharged',
+}
 
 
 def validate_force_field(ctx, param, value):
@@ -32,13 +40,13 @@ def validate_force_field(ctx, param, value):
 # Init Command
 # =============================================================================
 
-@click.command('init')
+@click.command('init', context_settings={'help_option_names': ['-h', '--help']})
 @click.argument('name', type=str, required=False)
 @click.option(
     '--ff', '-ff',
-    type=click.Choice(['calvados', 'hps', 'cocomo', 'mpipi_recharged']),
+    type=click.Choice(FORCE_FIELDS),
     default='calvados',
-    help='Force field (default: calvados)'
+    help=f'Force field. Available: {", ".join(FORCE_FIELDS)} (default: calvados)'
 )
 @click.option(
     '--type', '-t',
@@ -161,7 +169,7 @@ def init_command(name: str, ff: str, type: str, topol: str, output: str, nmol: i
 # CG Command
 # =============================================================================
 
-@click.command('cg')
+@click.command('cg', context_settings={'help_option_names': ['-h', '--help']})
 @click.option(
     '--input-file', '-f',
     type=click.Path(exists=True),
@@ -172,7 +180,7 @@ def init_command(name: str, ff: str, type: str, topol: str, output: str, nmol: i
     type=str,
     default='calvados',
     callback=validate_force_field,
-    help='Force field to use (default: calvados)',
+    help=f'Force field to use. Available: {", ".join(FORCE_FIELDS)} (default: calvados)',
 )
 @click.option(
     '--output-dir', '-o',
@@ -197,6 +205,12 @@ def init_command(name: str, ff: str, type: str, topol: str, output: str, nmol: i
     default=False,
     help='Enable verbose output',
 )
+@click.option(
+    '--gpu-id', '-g',
+    type=int,
+    default=0,
+    help='GPU device ID (default: 0)',
+)
 def cg_command(
     input_file: str,
     force_field: str,
@@ -204,6 +218,7 @@ def cg_command(
     dry_run: bool,
     overwrite: bool,
     verbose: bool,
+    gpu_id: int,
 ):
     """
     Run coarse-grained simulation.
@@ -211,7 +226,8 @@ def cg_command(
     INPUT_FILE is the configuration YAML file.
     
     Examples:
-        ms2 cg -f config.yaml                 # Run with calvados
+        ms2 cg -f config.yaml                 # Run with calvados (GPU 0)
+        ms2 cg -f config.yaml -g 1            # Run on GPU 1
         ms2 cg -f config.yaml -ff mpipi_recharged  # Run with Mpipi-Recharged
         ms2 cg -f config.yaml -ff cocomo      # Run with COCOMO
         ms2 cg -f config.yaml --dry-run       # Generate config only
@@ -237,6 +253,7 @@ def cg_command(
 
     click.echo(f"\n  Input file: {input_path}")
     click.echo(f"  Force field: {force_field}")
+    click.echo(f"  GPU ID: {gpu_id}")
     click.echo(f"  Mode: {'Dry run' if dry_run else 'Full simulation'}")
 
     # Load configuration first to get system_name
@@ -324,15 +341,17 @@ def cg_command(
         click.echo(f"\n[4/4] Running {force_field.upper()} simulation...")
 
         # Call appropriate runner based on force field
-        runner_method = f'run_{force_field}'
+        # Map CLI force field name to internal runner method name
+        runner_name = FORCE_FIELD_TO_RUNNER.get(force_field, force_field)
+        runner_method = f'run_{runner_name}'
         if not hasattr(sim, runner_method):
             click.echo(f"  ✗ Force field '{force_field}' not yet implemented.")
             sys.exit(1)
 
         try:
-            # Call runner method (uses default parameters)
+            # Call runner method with gpu_id parameter
             # For mpipi_recharged, defaults to use_gmx_insert=True, gmx_radius=0.35
-            result = getattr(sim, runner_method)()
+            result = getattr(sim, runner_method)(gpu_id=gpu_id)
 
             # Use the result output directory
             actual_output = result.output_dir if result.output_dir else final_output_dir
@@ -361,10 +380,114 @@ def cg_command(
 
 
 # =============================================================================
+# Backmap Command
+# =============================================================================
+
+@click.command('backmap', context_settings={'help_option_names': ['-h', '--help']})
+@click.option(
+    '--input', '-i',
+    type=click.Path(exists=True),
+    required=True,
+    help='Input: CG output directory (ms2 cg) or PDB file (user provided)',
+)
+@click.option(
+    '--input-file', '-f',
+    type=click.Path(exists=True),
+    help='Configuration YAML (same as CG stage, same flag as ms2 cg)',
+)
+@click.option(
+    '--output', '-o',
+    type=click.Path(),
+    help='Output directory (default: {system_name}_backmap)',
+)
+@click.option(
+    '--device', '-d',
+    type=click.Choice(['cpu', 'cuda']),
+    help='Device for backmapping (overrides config, default: cpu)',
+)
+@click.option(
+    '--model-type', '-m',
+    type=click.Choice(['ResidueBasedModel', 'CalphaBasedModel', 'auto']),
+    help='CG model type (overrides config, default: auto-detect)',
+)
+def backmap_command(input, input_file, output, device, model_type):
+    """Backmap CG structure to all-atom representation.
+    
+    Uses the same config.yaml as CG stage, with optional backmap section.
+    
+    Examples:
+        # ms2 cg output (with explicit config.yaml)
+        ms2 backmap -i TDP43_CG -f config.yaml
+        
+        # ms2 cg output (auto-find config.yaml in pwd)
+        ms2 backmap -i TDP43_CG
+        
+        # user provided PDB (requires config.yaml)
+        ms2 backmap -i my_structure.pdb -f config.yaml
+        
+        # Override device and output
+        ms2 backmap -i TDP43_CG -f config.yaml -d cuda -o ./results
+    """
+    from ..src.backmap import BackmapSimulator, BackmapConfig
+    from ..src import CGSimulationConfig
+    
+    click.echo(f"\n{'=' * 60}")
+    click.echo(f"Backmap CG to All-Atom")
+    click.echo(f"{'=' * 60}")
+    
+    click.echo(f"\n  Input: {input}")
+    if input_file:
+        click.echo(f"  Config: {input_file}")
+    if output:
+        click.echo(f"  Output: {output}")
+    if device:
+        click.echo(f"  Device: {device}")
+    if model_type:
+        click.echo(f"  Model: {model_type}")
+    
+    # 创建 backmap config（CLI 参数优先）
+    backmap_config = BackmapConfig()
+    if device:
+        backmap_config.device = device
+    if model_type and model_type != 'auto':
+        backmap_config.model_type = model_type
+    if output:
+        backmap_config.output_dir = output
+    
+    # 创建 simulator
+    simulator = BackmapSimulator(backmap_config=backmap_config)
+    
+    # 执行 backmap（output_dir 参数会覆盖 backmap_config.output_dir）
+    click.echo(f"\n[1/2] Preparing input...")
+    try:
+        result = simulator.run(input_path=input, config_path=input_file, output_dir=output)
+        
+        if result.success:
+            click.echo(f"  ✓ Backmap completed")
+            click.echo(f"  Input PDB: {result.input_pdb}")
+            click.echo(f"  Output PDB: {result.output_pdb}")
+            click.echo(f"  Model type: {result.model_type}")
+            click.echo(f"\n  ✓ Success!")
+        else:
+            click.echo(f"  ✗ Backmap failed:")
+            for error in result.errors:
+                click.echo(f"    - {error}")
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    
+    click.echo()
+
+
+# =============================================================================
 # Info Command
 # =============================================================================
 
-@click.command('info')
+@click.command('info', context_settings={'help_option_names': ['-h', '--help']})
 def info_command():
     """
     Display system and environment information.

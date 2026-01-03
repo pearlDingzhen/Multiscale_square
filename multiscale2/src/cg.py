@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from pathlib import Path
 
-from openmm import Platform, LangevinIntegrator, LangevinMiddleIntegrator, XmlSerializer
+from openmm import Platform, LangevinIntegrator, LangevinMiddleIntegrator, XmlSerializer, Vec3
 import openmm as mm
 import openmm.unit as unit
 from openmm.app import (
@@ -108,6 +108,34 @@ class SimulationParams:
         # 移除 None 值
         d = {k: v for k, v in d.items() if v is not None}
         return cls(**d)
+
+
+@dataclass
+class BackmapConfig:
+    """Backmap 配置段"""
+    device: str = "cpu"  # "cpu" 或 "cuda"
+    model_type: Optional[str] = None  # None 表示自动选择，或 "ResidueBasedModel"/"CalphaBasedModel"
+    output_dir: Optional[str] = None  # 输出目录，默认 {system_name}_backmap
+    
+    def to_dict(self) -> Dict:
+        """转换为字典"""
+        d = {
+            'device': self.device,
+        }
+        if self.model_type is not None:
+            d['model_type'] = self.model_type
+        if self.output_dir is not None:
+            d['output_dir'] = self.output_dir
+        return d
+    
+    @classmethod
+    def from_dict(cls, d: Dict) -> 'BackmapConfig':
+        """从字典创建"""
+        return cls(
+            device=d.get('device', 'cpu'),
+            model_type=d.get('model_type'),
+            output_dir=d.get('output_dir'),
+        )
 
 
 @dataclass
@@ -279,6 +307,9 @@ class CGSimulationConfig:
     # 输出
     output_dir: str = "output_cg"
     
+    # Backmap 配置（可选）
+    backmap: Optional[BackmapConfig] = None
+    
     # 元数据
     config_path: Optional[str] = None
     created_at: str = field(default_factory=lambda: str(__import__('datetime').datetime.now()))
@@ -313,7 +344,7 @@ class CGSimulationConfig:
     
     def to_dict(self) -> Dict:
         """转换为字典"""
-        return {
+        d = {
             'system_name': self.system_name,
             'box': self.box,
             'temperature': self.temperature,
@@ -323,6 +354,9 @@ class CGSimulationConfig:
             'components': [c.to_dict() for c in self.components],
             'output_dir': self.output_dir,
         }
+        if self.backmap is not None:
+            d['backmap'] = self.backmap.to_dict()
+        return d
     
     def to_yaml(self, path: str = None):
         """保存到 YAML 文件"""
@@ -351,6 +385,11 @@ class CGSimulationConfig:
         for comp_dict in d.get('components', []):
             components.append(CGComponent.from_dict(comp_dict))
         
+        # 处理 backmap 配置
+        backmap = None
+        if 'backmap' in d and d['backmap']:
+            backmap = BackmapConfig.from_dict(d['backmap'])
+        
         return cls(
             system_name=d.get('system_name', 'cg_simulation'),
             box=d.get('box', [25.0, 25.0, 30.0]),
@@ -360,6 +399,7 @@ class CGSimulationConfig:
             simulation=simulation,
             components=components,
             output_dir=d.get('output_dir', 'output_cg'),
+            backmap=backmap,
             config_path=d.get('config_path'),
         )
     
@@ -1264,13 +1304,8 @@ class CGSimulator:
         os.makedirs(raw_dir, exist_ok=True)
 
         try:
-            # 根据平台设置 GPU 环境变量
-            if platform == ComputePlatform.CUDA:
-                os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-            else:
-                # CPU 模式，不使用 GPU
-                if 'CUDA_VISIBLE_DEVICES' in os.environ:
-                    del os.environ['CUDA_VISIBLE_DEVICES']
+            # GPU 选择由 sim.py 中的 DeviceIndex 属性控制
+            # 不再需要设置 CUDA_VISIBLE_DEVICES 环境变量
 
             # 调用 CalvadosWrapper
             wrapper = CalvadosWrapper(temp_config)
@@ -1465,8 +1500,8 @@ class CGSimulator:
             print(f"  Raw output: {raw_dir}")
             print(f"  Topology: {self.config.topol.value if hasattr(self.config.topol, 'value') else self.config.topol}")
 
-            # 设置环境变量指定 GPU
-            os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+            # GPU 选择由 sim.py 中的 DeviceIndex 属性控制
+            # 不再需要设置 CUDA_VISIBLE_DEVICES 环境变量
 
             # 调用 CalvadosWrapper 的配置写入和模拟运行（传入 raw_dir、gpu_id 和 verbose）
             verbose = self.config.simulation.verbose
@@ -2811,13 +2846,36 @@ Output Files:
 
             # 保存最终结构为 PDB 格式（包含成键信息 - CONECT 记录）
             final_pdb = os.path.join(output_dir, 'final.pdb')
-            with open(final_pdb, 'w') as f:
+            final_pdb_mpipi_format = os.path.join(output_dir, 'final_mpipi_format.pdb')
+            
+            # 先保存 mpipi 格式的 PDB（pA, pG 等格式）
+            with open(final_pdb_mpipi_format, 'w') as f:
                 PDBFile.writeFile(
                     simulation.topology,
                     positions_final,
                     f,
                     keepIds=True
                 )
+            print(f"  保存 mpipi 格式 PDB: {final_pdb_mpipi_format}")
+
+            # 后处理：将 mpipi 格式的 PDB 转换为 calvados 格式（CA + 三字母代码）
+            print(f"\n  后处理 PDB 格式转换...")
+            try:
+                final_pdb_calvados_format = self._convert_mpipi_pdb_to_calvados_format(
+                    mpipi_pdb=final_pdb_mpipi_format,
+                    output_pdb=final_pdb
+                )
+                print(f"  ✓ PDB 格式转换完成: {final_pdb_calvados_format}")
+                print(f"  - 原始 mpipi 格式: {final_pdb_mpipi_format}")
+                print(f"  - Calvados 格式: {final_pdb}")
+            except Exception as e:
+                print(f"  ⚠️  PDB 格式转换失败: {e}")
+                print(f"  保留原始 mpipi 格式的 PDB: {final_pdb_mpipi_format}")
+                # 如果转换失败，将 mpipi 格式复制为 final.pdb
+                import shutil
+                shutil.copy2(final_pdb_mpipi_format, final_pdb)
+                import traceback
+                traceback.print_exc()
 
             # 复制 final.pdb 到根目录（self.output_dir = {system_name}_CG）
             import shutil
@@ -2980,6 +3038,22 @@ Output Files:
     # -------------------------------------------------------------------------
     # Utility Methods
     # -------------------------------------------------------------------------
+
+    def _convert_mpipi_pdb_to_calvados_format(self, mpipi_pdb: str, output_pdb: str) -> str:
+        """
+        将 mpipi_recharged 格式的 PDB 转换为 calvados 格式（CA + 三字母代码）
+        
+        使用 backmap 模块中的标准化函数。
+        
+        Args:
+            mpipi_pdb: mpipi_recharged 输出的 PDB 文件路径
+            output_pdb: 输出 PDB 文件路径（会覆盖原文件）
+            
+        Returns:
+            输出 PDB 文件路径
+        """
+        from .backmap import standardize_pdb_with_calvados
+        return standardize_pdb_with_calvados(mpipi_pdb, self.config, output_pdb)
 
     def get_result(self) -> Optional[SimulationResult]:
         """获取最近的模拟结果"""
