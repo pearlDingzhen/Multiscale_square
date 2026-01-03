@@ -29,6 +29,7 @@ from .cg import (
     SimulationResult,
     CGSimulator,
     ChainLabel,
+    BackmapConfig,
 )
 
 from .calvados_wrapper import (
@@ -45,6 +46,14 @@ from .pdb_tool import (
     extract_coordinates_from_pdb,
 )
 
+from .backmap import (
+    BackmapSimulator,
+    BackmapResult,
+    PreparedInput,
+    SourceType,
+    standardize_pdb_with_calvados,
+)
+
 __all__ = [
     # Configuration
     'CGSimulationConfig',
@@ -54,6 +63,7 @@ __all__ = [
     'ComputePlatform',
     'SimulationParams',
     'SimulationResult',
+    'BackmapConfig',
 
     # Simulator
     'CGSimulator',
@@ -68,4 +78,11 @@ __all__ = [
 
     # COCOMO creator
     'COCOMO',
+    
+    # Backmap
+    'BackmapSimulator',
+    'BackmapResult',
+    'PreparedInput',
+    'SourceType',
+    'standardize_pdb_with_calvados',
 ]

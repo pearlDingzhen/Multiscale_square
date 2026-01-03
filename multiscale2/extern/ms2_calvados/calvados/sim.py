@@ -521,11 +521,15 @@ class Sim:
 
         # assemble simulation
         platform = openmm.Platform.getPlatformByName(self.platform)
+        
         if self.platform == 'CPU':
             simulation = app.simulation.Simulation(pdb.topology, self.system, integrator, platform, dict(Threads=str(self.threads)))
         else:
-            if os.environ.get('CUDA_VISIBLE_DEVICES') is None:
-                platform.setPropertyDefaultValue('DeviceIndex',str(self.gpu_id))
+            # 修复 GPU 设备选择问题
+            # 直接使用 gpu_id 作为 DeviceIndex，忽略 CUDA_VISIBLE_DEVICES
+            # 这样 gpu_id=0 使用 GPU 0，gpu_id=1 使用 GPU 1，以此类推
+            platform.setPropertyDefaultValue('DeviceIndex', str(self.gpu_id))
+            
             simulation = app.simulation.Simulation(pdb.topology, self.system, integrator, platform)
         print('Running on', platform.getName())
 
