@@ -23,12 +23,16 @@ def main():
     
     Commands:
         init    Initialize a new configuration template
-        cg      Run coarse-grained simulation  
+        cg      Run coarse-grained simulation
         info    Display system and environment information
+    
+    Available force fields:
+        calvados, hps, cocomo, mpipi_recharged
     
     Examples:
         ms2 init my_project
-        ms2 cg -f config.yaml
+        ms2 init --ff mpipi_recharged --type mdp
+        ms2 cg -f config.yaml -ff mpipi_recharged
         ms2 info
     """
     pass
