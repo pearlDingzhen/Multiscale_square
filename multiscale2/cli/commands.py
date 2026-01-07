@@ -211,6 +211,12 @@ def init_command(name: str, ff: str, type: str, topol: str, output: str, nmol: i
     default=0,
     help='GPU device ID (default: 0)',
 )
+@click.option(
+    '--continue-from', '-c',
+    type=click.Path(exists=True),
+    default=None,
+    help='Continue simulation from a PDB coordinate file (Calvados only)',
+)
 def cg_command(
     input_file: str,
     force_field: str,
@@ -219,6 +225,7 @@ def cg_command(
     overwrite: bool,
     verbose: bool,
     gpu_id: int,
+    continue_from: str,
 ):
     """
     Run coarse-grained simulation.
@@ -232,6 +239,7 @@ def cg_command(
         ms2 cg -f config.yaml -ff cocomo      # Run with COCOMO
         ms2 cg -f config.yaml --dry-run       # Generate config only
         ms2 cg -f config.yaml -o ./results    # Custom output directory
+        ms2 cg -f config.yaml -c coords.pdb   # Continue from PDB (Calvados only)
     """
     # Handle input file
     if input_file is None:
@@ -255,6 +263,8 @@ def cg_command(
     click.echo(f"  Force field: {force_field}")
     click.echo(f"  GPU ID: {gpu_id}")
     click.echo(f"  Mode: {'Dry run' if dry_run else 'Full simulation'}")
+    if continue_from:
+        click.echo(f"  Continue from: {continue_from}")
 
     # Load configuration first to get system_name
     click.echo(f"\n[1/4] Loading configuration...")
@@ -280,6 +290,12 @@ def cg_command(
             click.echo(f"    - {error}")
         sys.exit(1)
     click.echo(f"  ✓ Configuration valid")
+    
+    # Validate --continue-from flag
+    if continue_from and force_field != 'calvados':
+        click.echo(f"  ✗ --continue-from is only supported with Calvados force field.")
+        click.echo(f"    Current force field: {force_field}")
+        sys.exit(1)
 
     # Setup simulator with final output directory
     click.echo(f"\n[3/4] Setting up simulation...")
@@ -349,9 +365,13 @@ def cg_command(
             sys.exit(1)
 
         try:
-            # Call runner method with gpu_id parameter
+            # Call runner method with gpu_id and continue_from parameters
             # For mpipi_recharged, defaults to use_gmx_insert=True, gmx_radius=0.35
-            result = getattr(sim, runner_method)(gpu_id=gpu_id)
+            # continue_from is only supported for calvados
+            if force_field == 'calvados':
+                result = getattr(sim, runner_method)(gpu_id=gpu_id, continue_from=continue_from)
+            else:
+                result = getattr(sim, runner_method)(gpu_id=gpu_id)
 
             # Use the result output directory
             actual_output = result.output_dir if result.output_dir else final_output_dir
@@ -470,6 +490,152 @@ def backmap_command(input, input_file, output, device, model_type):
             click.echo(f"\n  ✓ Success!")
         else:
             click.echo(f"  ✗ Backmap failed:")
+            for error in result.errors:
+                click.echo(f"    - {error}")
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    
+    click.echo()
+
+
+# =============================================================================
+# Pace-Opt Command
+# =============================================================================
+
+@click.command('pace-opt', context_settings={'help_option_names': ['-h', '--help']})
+@click.option(
+    '--input', '-i',
+    type=click.Path(exists=True),
+    required=True,
+    help='Input: backmap output directory (ms2 backmap) or PDB file (user provided)',
+)
+@click.option(
+    '--input-file', '-f',
+    type=click.Path(exists=True),
+    help='Configuration YAML (same as CG stage, same flag as ms2 cg)',
+)
+@click.option(
+    '--output', '-o',
+    type=click.Path(),
+    help='Output directory (default: {system_name}_pace_opt)',
+)
+@click.option(
+    '--skip-gromacs',
+    is_flag=True,
+    default=False,
+    help='Skip GROMACS optimization step',
+)
+@click.option(
+    '--device', '-d',
+    type=click.Choice(['cpu', 'cuda', 'opencl']),
+    default='cuda',
+    help='Device for OpenMM (default: cuda)',
+)
+@click.option(
+    '--box-resize',
+    type=str,
+    help='Box resize dimensions as comma-separated values (e.g., "23.0,17.0,47.0")',
+)
+@click.option(
+    '-l', '--level',
+    type=click.Choice(['high', 'medium', 'low']),
+    default='medium',
+    help='Optimization level: high (7 steps), medium (5 steps), low (3 steps). Default: medium',
+)
+def pace_opt_command(input, input_file, output, skip_gromacs, device, box_resize, level):
+    """Optimize backmapped structure with PACE force field.
+
+    Uses multi-step optimization: Gaussian repulsion → Softcore (multiple steps) → Standard force field.
+
+    Optimization levels:
+        high:   7 steps (0.2 → 0.15 → 0.1 → 0.075 → 0.05 → 0.025 → 0.01)
+        medium: 5 steps (0.2 → 0.1 → 0.05 → 0.025 → 0.01) - default
+        low:    3 steps (0.15 → 0.05 → 0.025)
+
+    Examples:
+        # From ms2 backmap output
+        ms2 pace-opt -i TDP43_backmap -f config.yaml
+
+        # From user provided PDB
+        ms2 pace-opt -i my_structure.pdb -f config.yaml
+
+        # With box resize
+        ms2 pace-opt -i TDP43_backmap -f config.yaml --box-resize "23.0,17.0,47.0"
+
+        # Use faster optimization (medium mode)
+        ms2 pace-opt -i TDP43_backmap -f config.yaml --optimization-mode medium
+        
+        # Skip GROMACS optimization
+        ms2 pace-opt -i TDP43_backmap -f config.yaml --skip-gromacs
+        
+        # Use CPU instead of CUDA
+        ms2 pace-opt -i TDP43_backmap -f config.yaml -d cpu
+    """
+    from ..src.pace_opt import PaceOptSimulator, PaceOptConfig
+    from ..src import CGSimulationConfig
+    
+    click.echo(f"\n{'=' * 60}")
+    click.echo(f"PACE Force Field Optimization")
+    click.echo(f"{'=' * 60}")
+    
+    click.echo(f"\n  Input: {input}")
+    if input_file:
+        click.echo(f"  Config: {input_file}")
+    if output:
+        click.echo(f"  Output: {output}")
+    click.echo(f"  Device: {device.upper()}")
+    if box_resize:
+        click.echo(f"  Box resize: {box_resize}")
+    if skip_gromacs:
+        click.echo(f"  GROMACS optimization: Skipped")
+    
+    # Load configuration
+    config = None
+    if input_file:
+        config = CGSimulationConfig.from_yaml(input_file)
+    
+    # Parse box resize if provided
+    box_resize_dims = None
+    if box_resize:
+        try:
+            box_resize_dims = [float(x.strip()) for x in box_resize.split(',')]
+            if len(box_resize_dims) != 3:
+                raise ValueError("Box resize must have 3 dimensions")
+        except ValueError as e:
+            click.echo(f"  ✗ Invalid box resize format: {e}")
+            sys.exit(1)
+    
+    # Create pace_opt_config
+    pace_opt_config = PaceOptConfig()
+    pace_opt_config.box_resize_enabled = box_resize_dims is not None
+    pace_opt_config.box_resize_dimensions = box_resize_dims
+    pace_opt_config.gromacs_enabled = not skip_gromacs
+    pace_opt_config.platform = device.upper()
+    pace_opt_config.set_optimization_mode(level)
+    
+    # Create simulator
+    simulator = PaceOptSimulator(config=config, pace_opt_config=pace_opt_config)
+    
+    # Run optimization
+    try:
+        result = simulator.run(input_path=input, config_path=input_file, output_dir=output)
+        
+        if result.success:
+            click.echo(f"\n  ✓ PACE optimization completed")
+            click.echo(f"  Input PDB: {result.input_pdb}")
+            click.echo(f"  Output PDB: {result.output_pdb}")
+            if result.intermediate_files:
+                click.echo(f"  Intermediate files:")
+                for f in result.intermediate_files:
+                    click.echo(f"    - {f}")
+            click.echo(f"\n  ✓ Success!")
+        else:
+            click.echo(f"  ✗ PACE optimization failed:")
             for error in result.errors:
                 click.echo(f"    - {error}")
             sys.exit(1)

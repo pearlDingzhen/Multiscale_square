@@ -211,7 +211,7 @@ class CalvadosWrapper:
             'run_script': os.path.join(output_dir, 'run.py'),
         }
     
-    def _generate_config_yaml(self, gpu_id: int = 0, verbose: bool = False) -> str:
+    def _generate_config_yaml(self, gpu_id: int = 0, verbose: bool = False, continue_from: str = None) -> str:
         """生成 CALVADOS config.yaml 内容
 
         策略：
@@ -224,6 +224,7 @@ class CalvadosWrapper:
         Args:
             gpu_id: GPU 设备 ID（用户指定的 GPU）
             verbose: 是否输出详细日志
+            continue_from: 继续模拟的坐标文件路径（PDB格式）
         """
         import yaml
         from multiscale2.extern.ms2_calvados.calvados.cfg import Config
@@ -255,6 +256,13 @@ class CalvadosWrapper:
             'verbose': verbose,  # 控制 CALVADOS 详细输出
             'gpu_id': gpu_id,  # 用户指定的 GPU ID
         })
+        
+        # 如果提供了 continue_from，设置 restart='pdb' 和 frestart
+        if continue_from:
+            config_dict.update({
+                'restart': 'pdb',
+                'frestart': continue_from,
+            })
         
         # SLAB 拓扑需要指定 slab_width
         if slab_width is not None:
@@ -309,8 +317,34 @@ class CalvadosWrapper:
         }
         
         for comp in self.config.components:
-            # 对于 MDP，name 应该与 PDB 文件名匹配（不含扩展名）
-            # fpdb 保持用于文件存在性检查
+            # 对于 MDP，验证 fpdb 文件是否存在
+            # CALVADOS 期望文件路径为 {pdb_folder}/{name}.pdb
+            if comp.type == ComponentType.MDP and comp.fpdb:
+                pdb_folder = os.path.dirname(os.path.abspath(comp.fpdb))
+                expected_pdb = os.path.join(pdb_folder, f"{comp.name}.pdb")
+                actual_pdb = os.path.abspath(comp.fpdb)
+                
+                # 验证文件存在
+                if not os.path.exists(actual_pdb):
+                    raise FileNotFoundError(
+                        f"PDB file not found: {actual_pdb}\n"
+                        f"  Component: {comp.name}\n"
+                        f"  Expected by CALVADOS: {expected_pdb}\n"
+                        f"\n"
+                        f"解决方案（二选一）：\n"
+                        f"  1. 重命名 PDB 文件: mv h1.pdb H1.pdb\n"
+                        f"  2. 修改 component name: name: h1  (小写)"
+                    )
+                
+                # 如果实际文件路径与 CALVADOS 期望的不匹配，给出警告
+                if actual_pdb != expected_pdb:
+                    print(f"\n  ⚠️  Warning: Component '{comp.name}' has fpdb='{comp.fpdb}'")
+                    print(f"      CALVADOS expects file named: {comp.name}.pdb")
+                    print(f"      This mismatch WILL cause errors!")
+                    print(f"\n  解决方案：")
+                    print(f"    mv {comp.fpdb} {os.path.join(pdb_folder, comp.name)}.pdb")
+                    print(f"")
+            
             comp_dict = {
                 'name': comp.name,
                 'molecule_type': 'protein',
@@ -331,7 +365,7 @@ class CalvadosWrapper:
         
         return yaml.dump(components, default_flow_style=False, sort_keys=False)
     
-    def _write_to_dir(self, output_dir: str, gpu_id: int = 0, verbose: bool = False) -> Dict[str, str]:
+    def _write_to_dir(self, output_dir: str, gpu_id: int = 0, verbose: bool = False, continue_from: str = None) -> Dict[str, str]:
         """写入配置文件到指定目录（返回文件路径字典）
 
         支持两种 fdomains 格式：
@@ -342,6 +376,7 @@ class CalvadosWrapper:
             output_dir: 输出目录
             gpu_id: GPU 设备 ID（用于写入 config.yaml）
             verbose: 是否输出详细日志
+            continue_from: 继续模拟的坐标文件路径（PDB格式，会被复制到输出目录）
         """
         import tempfile
         import shutil
@@ -349,10 +384,10 @@ class CalvadosWrapper:
         os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
 
-        # 写入 config.yaml（传入 gpu_id 和 verbose）
+        # 写入 config.yaml（传入 gpu_id、verbose 和 continue_from）
         config_file = os.path.join(output_dir, 'config.yaml')
         with open(config_file, 'w') as f:
-            f.write(self._generate_config_yaml(gpu_id=gpu_id, verbose=verbose))
+            f.write(self._generate_config_yaml(gpu_id=gpu_id, verbose=verbose, continue_from=continue_from))
         
         # 处理 components.yaml，支持内联 fdomains
         components_yaml = self._generate_components_yaml()
