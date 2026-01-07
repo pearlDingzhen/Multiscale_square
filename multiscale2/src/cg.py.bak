@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from pathlib import Path
 
-from openmm import Platform, LangevinIntegrator, LangevinMiddleIntegrator, XmlSerializer, Vec3
+from openmm import Platform, LangevinIntegrator, LangevinMiddleIntegrator, XmlSerializer
 import openmm as mm
 import openmm.unit as unit
 from openmm.app import (
@@ -108,34 +108,6 @@ class SimulationParams:
         # 移除 None 值
         d = {k: v for k, v in d.items() if v is not None}
         return cls(**d)
-
-
-@dataclass
-class BackmapConfig:
-    """Backmap 配置段"""
-    device: str = "cpu"  # "cpu" 或 "cuda"
-    model_type: Optional[str] = None  # None 表示自动选择，或 "ResidueBasedModel"/"CalphaBasedModel"
-    output_dir: Optional[str] = None  # 输出目录，默认 {system_name}_backmap
-    
-    def to_dict(self) -> Dict:
-        """转换为字典"""
-        d = {
-            'device': self.device,
-        }
-        if self.model_type is not None:
-            d['model_type'] = self.model_type
-        if self.output_dir is not None:
-            d['output_dir'] = self.output_dir
-        return d
-    
-    @classmethod
-    def from_dict(cls, d: Dict) -> 'BackmapConfig':
-        """从字典创建"""
-        return cls(
-            device=d.get('device', 'cpu'),
-            model_type=d.get('model_type'),
-            output_dir=d.get('output_dir'),
-        )
 
 
 @dataclass
@@ -307,9 +279,6 @@ class CGSimulationConfig:
     # 输出
     output_dir: str = "output_cg"
     
-    # Backmap 配置（可选）
-    backmap: Optional[BackmapConfig] = None
-    
     # 元数据
     config_path: Optional[str] = None
     created_at: str = field(default_factory=lambda: str(__import__('datetime').datetime.now()))
@@ -344,7 +313,7 @@ class CGSimulationConfig:
     
     def to_dict(self) -> Dict:
         """转换为字典"""
-        d = {
+        return {
             'system_name': self.system_name,
             'box': self.box,
             'temperature': self.temperature,
@@ -354,9 +323,6 @@ class CGSimulationConfig:
             'components': [c.to_dict() for c in self.components],
             'output_dir': self.output_dir,
         }
-        if self.backmap is not None:
-            d['backmap'] = self.backmap.to_dict()
-        return d
     
     def to_yaml(self, path: str = None):
         """保存到 YAML 文件"""
@@ -385,11 +351,6 @@ class CGSimulationConfig:
         for comp_dict in d.get('components', []):
             components.append(CGComponent.from_dict(comp_dict))
         
-        # 处理 backmap 配置
-        backmap = None
-        if 'backmap' in d and d['backmap']:
-            backmap = BackmapConfig.from_dict(d['backmap'])
-        
         return cls(
             system_name=d.get('system_name', 'cg_simulation'),
             box=d.get('box', [25.0, 25.0, 30.0]),
@@ -399,7 +360,6 @@ class CGSimulationConfig:
             simulation=simulation,
             components=components,
             output_dir=d.get('output_dir', 'output_cg'),
-            backmap=backmap,
             config_path=d.get('config_path'),
         )
     
@@ -568,13 +528,17 @@ class CGSimulator:
                     f"Output directory exists: {output_dir}\n"
                     f"Use overwrite=True to replace."
                 )
-            # 如果 overwrite=True，不删除目录，让后续的力场特定方法来处理备份逻辑
+        else:
+            os.makedirs(output_dir, exist_ok=True)
 
         self.output_dir = output_dir
 
         print(f"\n[CGSimulator] Setting up...")
         print(f"  Output directory: {output_dir}")
         print(f"  System: {self.config.system_name}")
+
+        # 复制输入文件
+        self._copy_input_files(output_dir)
 
         self.is_setup = True
         print(f"  ✓ Setup complete")
@@ -1167,8 +1131,6 @@ class CGSimulator:
             shutil.move(output_dir, backup_dir)
             print(f"  📁 备份旧结果到: {backup_dir}")
 
-        # 先创建父目录，再创建 raw 子目录
-        os.makedirs(output_dir, exist_ok=True)
         os.makedirs(raw_dir, exist_ok=True)
 
         return {
@@ -1304,8 +1266,13 @@ class CGSimulator:
         os.makedirs(raw_dir, exist_ok=True)
 
         try:
-            # GPU 选择由 sim.py 中的 DeviceIndex 属性控制
-            # 不再需要设置 CUDA_VISIBLE_DEVICES 环境变量
+            # 根据平台设置 GPU 环境变量
+            if platform == ComputePlatform.CUDA:
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+            else:
+                # CPU 模式，不使用 GPU
+                if 'CUDA_VISIBLE_DEVICES' in os.environ:
+                    del os.environ['CUDA_VISIBLE_DEVICES']
 
             # 调用 CalvadosWrapper
             wrapper = CalvadosWrapper(temp_config)
@@ -1460,7 +1427,7 @@ class CGSimulator:
     # Runner Methods
     # -------------------------------------------------------------------------
     
-    def run_calvados(self, gpu_id: int = 0, continue_from: str = None, **kwargs) -> SimulationResult:
+    def run_calvados(self, gpu_id: int = 0, **kwargs) -> SimulationResult:
         """
         运行 CALVADOS 模拟
 
@@ -1468,7 +1435,6 @@ class CGSimulator:
 
         Args:
             gpu_id: GPU 设备 ID
-            continue_from: 继续模拟的坐标文件路径（PDB格式），支持从指定结构继续模拟
             **kwargs: 额外参数
 
         Returns:
@@ -1487,9 +1453,6 @@ class CGSimulator:
         raw_dir = dirs['raw_dir']
         task_name = dirs['task_name']
 
-        # 复制输入文件（在备份逻辑之后）
-        self._copy_input_files(output_dir)
-
         self.is_running = True
         result = SimulationResult()
         result.output_dir = output_dir
@@ -1501,27 +1464,13 @@ class CGSimulator:
             print(f"  Raw output: {raw_dir}")
             print(f"  Topology: {self.config.topol.value if hasattr(self.config.topol, 'value') else self.config.topol}")
 
-            # GPU 选择由 sim.py 中的 DeviceIndex 属性控制
-            # 不再需要设置 CUDA_VISIBLE_DEVICES 环境变量
+            # 设置环境变量指定 GPU
+            os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
             # 调用 CalvadosWrapper 的配置写入和模拟运行（传入 raw_dir、gpu_id 和 verbose）
             verbose = self.config.simulation.verbose
             wrapper = CalvadosWrapper(self.config)
-            
-            # 处理 continue_from 参数
-            continue_from_file = None
-            if continue_from:
-                if not os.path.exists(continue_from):
-                    raise FileNotFoundError(f"Continue from file not found: {continue_from}")
-                # 复制坐标文件到 raw 目录
-                continue_from_file = os.path.basename(continue_from)
-                continue_from_dst = os.path.join(raw_dir, continue_from_file)
-                import shutil
-                shutil.copy2(continue_from, continue_from_dst)
-                print(f"  [Continue From] Using coordinates from: {continue_from}")
-                print(f"  [Continue From] Copied to: {continue_from_dst}")
-            
-            wrapper._write_to_dir(raw_dir, gpu_id=gpu_id, verbose=verbose, continue_from=continue_from_file)
+            wrapper._write_to_dir(raw_dir, gpu_id=gpu_id, verbose=verbose)  # 写入配置文件到 raw 目录
 
             # 运行模拟
             from multiscale2.extern.ms2_calvados.calvados import sim as calvados_sim
@@ -1910,12 +1859,8 @@ Output Files:
             # ===== 4. 创建 Topology 和 System =====
             print("\n  创建 Topology 和 System...")
             
-            # 创建 HPS 输出子目录（用于存放临时文件和输出文件）
-            hps_output_dir = os.path.join(self.output_dir, 'HPS')
-            os.makedirs(hps_output_dir, exist_ok=True)
-            
-            # 从 model.atoms 创建临时 PDB，然后读取创建 topology（放在 HPS 子目录中）
-            temp_pdb = os.path.join(hps_output_dir, '_temp_hps_model.pdb')
+            # 从 model.atoms 创建临时 PDB，然后读取创建 topology
+            temp_pdb = os.path.join(self.output_dir, '_temp_hps_model.pdb')
             model.atoms_to_pdb(temp_pdb, reset_serial=True)
             topology = PDBFile(temp_pdb).topology
             
@@ -2049,8 +1994,9 @@ Output Files:
             # ===== 6. 运行模拟 =====
             print(f"\n  Running HPS simulation: {self.config.simulation.steps} steps...")
             
-            # 添加报告器（使用之前创建的 HPS 输出目录）
-            output_dir = hps_output_dir
+            # 添加报告器
+            output_dir = os.path.join(self.output_dir, 'HPS')
+            os.makedirs(output_dir, exist_ok=True)
             
             wfreq = self.config.simulation.wfreq
             traj_file = os.path.join(output_dir, 'trajectory.xtc')
@@ -2090,10 +2036,6 @@ Output Files:
                 enforcePeriodicBox=True
             )
             positions_final = state_final.getPositions()
-            
-            # 获取盒子向量并设置到 topology（这样 PDB 会包含 PBC 信息）
-            box_vectors = state_final.getPeriodicBoxVectors()
-            simulation.topology.setPeriodicBoxVectors(box_vectors)
             
             final_pdb = os.path.join(output_dir, 'final.pdb')
             with open(final_pdb, 'w') as f:
@@ -2477,7 +2419,11 @@ Output Files:
                 )
             print(f"  保存最终结构: {final_pdb}")
 
-            # final.pdb 已经在根目录（output_dir = self.output_dir = {system_name}_CG），无需复制
+            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
+            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
+            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            shutil.copy2(final_pdb, final_pdb_root)
+            print(f"  复制最终结构到: {final_pdb_root}")
 
             # 保存系统 XML
             system_xml = os.path.join(output_dir, 'system.xml')
@@ -2511,44 +2457,30 @@ Output Files:
         """
         准备 COCOMO 输出目录
 
-        输出目录结构：{output_dir}/ (CLI already sets self.output_dir = {system_name}_CG)
-        直接使用 self.output_dir，避免嵌套目录
+        输出目录结构：{output_dir}/{system_name}_CG/
+        与 equilibration 保持同一级别
         """
-        # CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
-        output_dir = self.output_dir
+        # CG 目录
+        cg_dir = os.path.join(self.output_dir, f"{self.config.system_name}_CG")
 
-        # 备份旧结果（仅在目录包含之前的模拟结果时）
+        # 备份旧结果
         import shutil
         from datetime import datetime
 
-        # 检查目录是否存在，以及是否包含之前的模拟结果
-        should_backup = False
-        if os.path.exists(output_dir):
-            # 检查是否有模拟结果文件（不是预平衡文件）
-            result_files = ['final.pdb', 'trajectory.xtc', 'simulation.log', 'system.xml']
-            has_results = any(os.path.exists(os.path.join(output_dir, f)) for f in result_files)
-            
-            # 只有当存在模拟结果时才备份（预平衡文件不算）
-            if has_results:
-                should_backup = True
-        
-        if should_backup:
+        if os.path.exists(cg_dir):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_dir = f"{output_dir}_backup_{timestamp}"
-            shutil.move(output_dir, backup_dir)
+            backup_dir = f"{cg_dir}_backup_{timestamp}"
+            shutil.move(cg_dir, backup_dir)
             print(f"  📁 备份旧结果到: {backup_dir}")
-            # 重新创建输出目录
-            os.makedirs(output_dir, exist_ok=True)
-        else:
-            # 目录不存在或只包含预平衡文件，直接创建（如果不存在）
-            os.makedirs(output_dir, exist_ok=True)
+
+        os.makedirs(cg_dir, exist_ok=True)
 
         return {
-            'output_dir': output_dir,
+            'output_dir': cg_dir,
             'task_name': 'COCOMO',
         }
-
-    def run_mpipi_recharged(self, gpu_id: int = 0, return_system: bool = False, **kwargs) -> SimulationResult:
+    
+    def run_mpipi_recharged(self, gpu_id: int = 0, **kwargs) -> SimulationResult:
         """
         运行 Mpipi-Recharged 模拟
 
@@ -2563,15 +2495,13 @@ Output Files:
 
         Args:
             gpu_id: GPU 设备 ID
-            return_system: 如果为 True，返回 (system, topology, positions) 而不是运行模拟（默认 False）
             **kwargs: 额外参数
                 - use_gmx_insert: 是否使用 gmx insert-molecules 放置分子（默认 True）
                 - gmx_radius: gmx insert-molecules 的最小距离（nm，默认 0.35）
                 - verbose: 是否输出详细信息（默认 True）
 
         Returns:
-            SimulationResult (默认)
-            或 (system, topology, positions) 当 return_system=True 时
+            SimulationResult
         """
         from openmm.app import PDBFile
         from openmm import Platform, LangevinMiddleIntegrator, Vec3, LocalEnergyMinimizer
@@ -2710,12 +2640,6 @@ Output Files:
             # 从 model 获取 topology 和 positions
             topology = model.topology
             positions = model.positions
-
-            # 如果只需要返回 system，不运行模拟
-            if return_system:
-                print(f"\n  [return_system=True] 返回系统，跳过模拟")
-                self.is_running = False
-                return system, topology, positions
 
             # 创建 Simulation 对象 (优先使用config指定的platform)
             config_platform = self.config.simulation.platform
@@ -2873,44 +2797,16 @@ Output Files:
 
             # 保存最终结构为 PDB 格式（包含成键信息 - CONECT 记录）
             final_pdb = os.path.join(output_dir, 'final.pdb')
-            final_pdb_mpipi_format = os.path.join(output_dir, 'final_mpipi_format.pdb')
-            
-            # 先保存 mpipi 格式的 PDB（pA, pG 等格式）
-            with open(final_pdb_mpipi_format, 'w') as f:
+            with open(final_pdb, 'w') as f:
                 PDBFile.writeFile(
                     simulation.topology,
                     positions_final,
                     f,
                     keepIds=True
                 )
-            print(f"  保存 mpipi 格式 PDB: {final_pdb_mpipi_format}")
-
-            # 后处理：将 mpipi 格式的 PDB 转换为 calvados 格式（CA + 三字母代码）
-            print(f"\n  后处理 PDB 格式转换...")
-            try:
-                final_pdb_calvados_format = self._convert_mpipi_pdb_to_calvados_format(
-                    mpipi_pdb=final_pdb_mpipi_format,
-                    output_pdb=final_pdb
-                )
-                print(f"  ✓ PDB 格式转换完成: {final_pdb_calvados_format}")
-                print(f"  - 原始 mpipi 格式: {final_pdb_mpipi_format}")
-                print(f"  - Calvados 格式: {final_pdb}")
-            except Exception as e:
-                print(f"  ⚠️  PDB 格式转换失败: {e}")
-                print(f"  保留原始 mpipi 格式的 PDB: {final_pdb_mpipi_format}")
-                # 如果转换失败，将 mpipi 格式复制为 final.pdb
-                import shutil
-                shutil.copy2(final_pdb_mpipi_format, final_pdb)
-                import traceback
-                traceback.print_exc()
-
-            # 复制 final.pdb 到根目录（self.output_dir = {system_name}_CG）
-            import shutil
-            final_pdb_root = os.path.join(self.output_dir, 'final.pdb')
-            shutil.copy2(final_pdb, final_pdb_root)
-            print(f"  复制最终结构到根目录: {final_pdb_root}")
 
             # 复制文件到标准位置
+            import shutil
             shutil.copy(final_pdb, os.path.join(output_dir, 'preequil_final.pdb'))
 
             # 保存系统 XML
@@ -2951,7 +2847,274 @@ Output Files:
             self.is_running = False
 
         return result
-    
+
+    def _build_globular_indices_dict(self) -> Dict[str, list]:
+            positions = model.positions
+
+            # 创建 Simulation 对象 (优先使用config指定的platform)
+            config_platform = self.config.simulation.platform
+            platform_name = config_platform.value if hasattr(config_platform, 'value') else str(config_platform)
+            
+            # 平台选择：优先使用config指定的平台，支持自动回退
+            if gpu_id >= 0:
+                # 用户想要使用GPU
+                try:
+                    platform = Platform.getPlatformByName(platform_name)
+                    properties = {'DeviceIndex': str(gpu_id)}
+                    print(f"  使用 {platform_name} 平台")
+                except Exception:
+                    # 尝试其他GPU平台
+                    for fallback in ['CUDA', 'OpenCL']:
+                        if fallback != platform_name:
+                            try:
+                                platform = Platform.getPlatformByName(fallback)
+                                properties = {'DeviceIndex': str(gpu_id)}
+                                print(f"  {platform_name} 不可用，回退到 {fallback}")
+                                break
+                            except:
+                                continue
+                    else:
+                        print(f"  GPU 不可用，回退到 CPU")
+                        platform = Platform.getPlatformByName('CPU')
+                        properties = {}
+            else:
+                # 用户想要使用CPU
+                platform = Platform.getPlatformByName('CPU')
+                properties = {}
+                print("  使用 CPU 平台")
+
+            # 使用 LangevinMiddleIntegrator（与 OpenMpipi 示例一致）
+            # 温度从 config 读取，摩擦系数 0.01/ps，时间步长 0.01 ps
+            temperature = self.config.temperature
+            integrator = LangevinMiddleIntegrator(
+                temperature * kelvin,
+                0.01 / picoseconds,
+                0.01 * picoseconds
+            )
+
+            simulation = Simulation(
+                topology,
+                system,
+                integrator=integrator,
+                platform=platform,
+                platformProperties=properties
+            )
+
+            # 设置初始坐标：如果有预平衡 PDB，使用其坐标
+            
+            if preequil_pdb:
+                print(f"  使用预平衡 PDB 坐标: {preequil_pdb}")
+                pdb = PDBFile(preequil_pdb)
+                calvados_positions = pdb.getPositions()
+                simulation.context.setPositions(calvados_positions)
+            else:
+                simulation.context.setPositions(positions)
+
+            # 如果系统有周期性边界，设置盒子向量
+            if is_periodic:
+                box_size = self.config.box
+                box_vecs = [
+                    mm.Vec3(x=box_size[0], y=0.0, z=0.0),
+                    mm.Vec3(x=0.0, y=box_size[1], z=0.0),
+                    mm.Vec3(x=0.0, y=0.0, z=box_size[2])
+                ] * unit.nanometer
+                simulation.context.setPeriodicBoxVectors(*box_vecs)
+
+            # 设置初始速度
+            simulation.context.setVelocitiesToTemperature(temperature * kelvin)
+
+            # 保存 minimization 前的结构（用于调试）
+            debug_pdb_before_min = os.path.join(output_dir, 'before_minimization.pdb')
+            with open(debug_pdb_before_min, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions,
+                    f
+                )
+            print(f"  保存 minimization 前结构: {debug_pdb_before_min}")
+
+            # 能量最小化
+            print("  Running energy minimization...")
+            simulation.minimizeEnergy()
+            print("  Energy minimization completed")
+
+            # 获取最小化后的状态和能量
+            state_after_min = simulation.context.getState(getPositions=True, getEnergy=True)
+            energy_after_min = state_after_min.getPotentialEnergy()
+            print(f"  Minimization energy: {energy_after_min}")
+
+            # 保存最小化后的结构
+            positions_after_min = state_after_min.getPositions()
+            debug_pdb_after_min = os.path.join(output_dir, 'after_minimization.pdb')
+            with open(debug_pdb_after_min, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions_after_min,
+                    f
+                )
+            print(f"  保存 minimization 后结构: {debug_pdb_after_min}")
+
+            # 运行模拟
+            wfreq = self.config.simulation.wfreq
+            xtc_file = os.path.join(output_dir, 'trajectory.xtc')
+            log_file = os.path.join(output_dir, 'simulation.log')
+
+            # 添加报告器
+            simulation.reporters.append(
+                XTCReporter(xtc_file, wfreq)
+            )
+            simulation.reporters.append(
+                StateDataReporter(
+                    log_file,
+                    wfreq,
+                    step=True,
+                    potentialEnergy=True,
+                    kineticEnergy=True,
+                    totalEnergy=True,
+                    temperature=True,
+                    volume=True,
+                )
+            )
+
+            # 运行模拟（使用 tqdm 显示进度）
+            total_steps = self.config.simulation.steps
+            print(f"  开始模拟: {total_steps} 步")
+
+            from tqdm import tqdm
+            n_batches = 10
+            batch_size = total_steps // n_batches
+
+            for _ in tqdm(range(n_batches), desc="Mpipi-Recharged"):
+                simulation.step(batch_size)
+                simulation.saveCheckpoint(os.path.join(output_dir, 'restart.chk'))
+
+            # 处理剩余步数
+            remaining = total_steps % n_batches
+            if remaining > 0:
+                simulation.step(remaining)
+
+            print(f"  模拟完成!")
+
+            # 获取最终状态（包含 PBC 信息）
+            state_final = simulation.context.getState(
+                getPositions=True,
+                getVelocities=True,
+                getForces=True,
+                getEnergy=True,
+                enforcePeriodicBox=True
+            )
+
+            # 获取最终的位置和盒子向量
+            positions_final = state_final.getPositions()
+            box_vectors = state_final.getPeriodicBoxVectors()
+
+            # 在拓扑上设置盒子向量
+            simulation.topology.setPeriodicBoxVectors(box_vectors)
+
+            # 保存最终结构为 PDB 格式（包含成键信息 - CONECT 记录）
+            final_pdb = os.path.join(output_dir, 'final.pdb')
+            with open(final_pdb, 'w') as f:
+                PDBFile.writeFile(
+                    simulation.topology,
+                    positions_final,
+                    f
+                )
+            print(f"  保存最终结构 (含 CONECT): {final_pdb}")
+
+            # 同时复制到 {system_name}_CG/final.pdb（根目录，方便访问）
+            cg_root_dir = os.path.dirname(output_dir)  # {system_name}_CG/
+            final_pdb_root = os.path.join(cg_root_dir, 'final.pdb')
+            shutil.copy2(final_pdb, final_pdb_root)
+            print(f"  复制最终结构到: {final_pdb_root}")
+
+            # 额外保存一个不带 CONECT 的版本（只保存坐标）
+            final_pdb_no_conect = os.path.join(output_dir, 'final_no_conect.pdb')
+            
+            # 复制拓扑对象（不复制 bonds）
+            from openmm.app import Topology
+            topology_no_conect = Topology()
+            topology_no_conect.setPeriodicBoxVectors(box_vectors)
+            
+            # 标准 PDB atom 名称映射
+            pdb_atom_names = {
+                'pA': 'CA', 'pR': 'CA', 'pN': 'CA', 'pD': 'CA', 'pC': 'CA',
+                'pQ': 'CA', 'pE': 'CA', 'pG': 'CA', 'pH': 'CA', 'pI': 'CA',
+                'pL': 'CA', 'pK': 'CA', 'pM': 'CA', 'pF': 'CA', 'pP': 'CA',
+                'pS': 'CA', 'pT': 'CA', 'pW': 'CA', 'pY': 'CA', 'pV': 'CA',
+                'rU': 'P',   # RNA 用磷原子
+            }
+            
+            # 标准残基名称映射
+            pdb_res_names = {
+                'pA': 'ALA', 'pR': 'ARG', 'pN': 'ASN', 'pD': 'ASP', 'pC': 'CYS',
+                'pQ': 'GLN', 'pE': 'GLU', 'pG': 'GLY', 'pH': 'HIS', 'pI': 'ILE',
+                'pL': 'LEU', 'pK': 'LYS', 'pM': 'MET', 'pF': 'PHE', 'pP': 'PRO',
+                'pS': 'SER', 'pT': 'THR', 'pW': 'TRP', 'pY': 'TYR', 'pV': 'VAL',
+                'rU': 'U',   # RNA
+            }
+            
+            # 重建拓扑（使用标准 PDB 命名，无 bonds）
+            for chain in simulation.topology.chains():
+                new_chain = topology_no_conect.addChain(id=chain.id)
+                for residue in chain.residues():
+                    orig_res_name = residue.name
+                    std_res_name = pdb_res_names.get(orig_res_name, orig_res_name)
+                    new_residue = topology_no_conect.addResidue(std_res_name, new_chain, 
+                                                                 residue.id, residue.insertionCode)
+                    for atom in residue.atoms():
+                        orig_atom_name = atom.name
+                        std_atom_name = pdb_atom_names.get(orig_atom_name, orig_atom_name)
+                        topology_no_conect.addAtom(std_atom_name, atom.element, new_residue)
+            
+            with open(final_pdb_no_conect, 'w') as f:
+                PDBFile.writeFile(
+                    topology_no_conect,
+                    positions_final,
+                    f
+                )
+            print(f"  保存最终结构 (不含 CONECT, 标准 PDB 格式): {final_pdb_no_conect}")
+            
+            # 复制不带 CONECT 的版本到根目录
+            final_pdb_root_no_conect = os.path.join(cg_root_dir, 'final_no_conect.pdb')
+            shutil.copy2(final_pdb_no_conect, final_pdb_root_no_conect)
+            print(f"  复制无 CONECT 结构到: {final_pdb_root_no_conect}")
+
+            # 保存系统 XML
+            system_xml = os.path.join(output_dir, 'system.xml')
+            with open(system_xml, 'w') as f:
+                f.write(XmlSerializer.serialize(system))
+            print(f"  保存系统 XML: {system_xml}")
+
+            result.success = True
+            result.trajectory = xtc_file
+            result.structure = final_pdb
+            result.output_dir = output_dir
+
+            print(f"  Mpipi-Recharged 输出目录: {output_dir}")
+
+        except ImportError as e:
+            result = SimulationResult()
+            result.success = False
+            result.errors.append(f"ms2_OpenMpipi not installed: {e}")
+            result.output_dir = output_dir
+            print(f"  ✗ Mpipi-Recharged simulation failed: ms2_OpenMpipi not available")
+            import traceback
+            traceback.print_exc()
+
+        except Exception as e:
+            result = SimulationResult()
+            result.success = False
+            result.errors.append(str(e))
+            result.output_dir = output_dir
+            print(f"  ✗ Mpipi-Recharged simulation failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        finally:
+            self.is_running = False
+
+        return result
+
     def _build_globular_indices_dict(self) -> Dict[str, list]:
         """
         从 config.components 构建 globular_indices_dict
@@ -3027,23 +3190,24 @@ Output Files:
         """
         准备 Mpipi-Recharged 输出目录
 
-        输出目录结构：{output_dir}/Mpipi-Recharged/
-        CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
+        输出目录结构：{output_dir}/{system_name}_CG/Mpipi-Recharged/
+        与 equilibration 保持同一级别（与 COCOMO runner 一致）
 
         期望结构：
-        {system_name}_CG/
+        {output_dir}/{system_name}_CG/
         ├── Mpipi-Recharged/     # 主模拟输出
         │   ├── trajectory.xtc
         │   ├── final.pdb
         │   └── ...
-        ├── final.pdb            # 复制到根目录
         └── equilibration/       # 预平衡输出（由 _run_pre_equilibration 创建）
             └── raw/
                 └── ...
         """
-        # CLI 已经设置了 self.output_dir = {system_name}_CG，直接使用
+        # CG 目录（包含 equilibration 和 Mpipi-Recharged）
+        cg_dir = os.path.join(self.output_dir, f"{self.config.system_name}_CG")
+        
         # Mpipi-Recharged 主模拟输出目录
-        mpipi_dir = os.path.join(self.output_dir, 'Mpipi-Recharged')
+        mpipi_dir = os.path.join(cg_dir, 'Mpipi-Recharged')
 
         # 备份旧结果
         import shutil
@@ -3065,22 +3229,6 @@ Output Files:
     # -------------------------------------------------------------------------
     # Utility Methods
     # -------------------------------------------------------------------------
-
-    def _convert_mpipi_pdb_to_calvados_format(self, mpipi_pdb: str, output_pdb: str) -> str:
-        """
-        将 mpipi_recharged 格式的 PDB 转换为 calvados 格式（CA + 三字母代码）
-        
-        使用 backmap 模块中的标准化函数。
-        
-        Args:
-            mpipi_pdb: mpipi_recharged 输出的 PDB 文件路径
-            output_pdb: 输出 PDB 文件路径（会覆盖原文件）
-            
-        Returns:
-            输出 PDB 文件路径
-        """
-        from .backmap import standardize_pdb_with_calvados
-        return standardize_pdb_with_calvados(mpipi_pdb, self.config, output_pdb)
 
     def get_result(self) -> Optional[SimulationResult]:
         """获取最近的模拟结果"""

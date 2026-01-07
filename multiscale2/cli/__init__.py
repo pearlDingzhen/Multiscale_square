@@ -8,13 +8,14 @@ A multi-stage workflow for simulating protein condensates.
         init    Initialize a new configuration template
         cg      Run coarse-grained simulation
         backmap Backmap CG structure to all-atom representation
+        pace-opt Optimize backmapped structure with PACE force field
         info    Display system information
 """
 
 import sys
 import click
 
-from .commands import init_command, cg_command, backmap_command, info_command
+from .commands import init_command, cg_command, backmap_command, pace_opt_command, info_command
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
@@ -25,6 +26,8 @@ def main():
     Commands:
         init    Initialize a new configuration template
         cg      Run coarse-grained simulation
+        backmap Backmap CG structure to all-atom representation
+        pace-opt Optimize backmapped structure with PACE force field
         info    Display system and environment information
     
     Available force fields:
@@ -35,6 +38,7 @@ def main():
         ms2 init --ff mpipi_recharged --type mdp
         ms2 cg -f config.yaml -ff mpipi_recharged
         ms2 backmap -i TDP43_CG -f config.yaml
+        ms2 pace-opt -i TDP43_backmap -f config.yaml
         ms2 info
     """
     pass
@@ -44,6 +48,7 @@ def main():
 main.add_command(init_command, 'init')
 main.add_command(cg_command, 'cg')
 main.add_command(backmap_command, 'backmap')
+main.add_command(pace_opt_command, 'pace-opt')
 main.add_command(info_command, 'info')
 
 

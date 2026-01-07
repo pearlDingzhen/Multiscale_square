@@ -1,7 +1,7 @@
-import distutils.spawn
 import math
 import os
 import re
+import shutil
 from collections import OrderedDict, defaultdict
 
 import simtk.openmm as mm
@@ -21,6 +21,157 @@ HAngles = ff.HAngles
 
 
 novarcharre = re.compile(r"\W")
+
+# Ring constraints data for aromatic residues (rigid triangle constraints)
+# Force constants:
+# - Distance constraints (12, 13, 14): 2500000 kJ/mol/nm^2
+# - Angle constraints (13): 5000 kJ/mol/rad^2
+# Distances in nm, angles in degrees
+RING_CONSTRAINTS = {
+    "PHE": {
+        "constraints_12": [
+            {"atom1": "CG", "atom2": "CD1", "distance_nm": 0.138885},
+            {"atom1": "CG", "atom2": "CD2", "distance_nm": 0.138517},
+            {"atom1": "CD1", "atom2": "CE1", "distance_nm": 0.138293},
+            {"atom1": "CE1", "atom2": "CZ", "distance_nm": 0.13886},
+            {"atom1": "CZ", "atom2": "CE2", "distance_nm": 0.139295},
+            {"atom1": "CE2", "atom2": "CD2", "distance_nm": 0.139449},
+        ],
+        "constraints_13": [
+            {"atom1": "CG", "atom2": "CE1", "distance_nm": 0.239904},
+            {"atom1": "CG", "atom2": "CE2", "distance_nm": 0.240817},
+            {"atom1": "CD1", "atom2": "CZ", "distance_nm": 0.240385},
+            {"atom1": "CD1", "atom2": "CD2", "distance_nm": 0.240479},
+            {"atom1": "CE1", "atom2": "CE2", "distance_nm": 0.240875},
+            {"atom1": "CZ", "atom2": "CD2", "distance_nm": 0.240842},
+        ],
+        "constraints_14": [
+            {"atom1": "CG", "atom2": "CZ", "distance_nm": 0.277557},
+            {"atom1": "CD1", "atom2": "CE2", "distance_nm": 0.278262},
+            {"atom1": "CE1", "atom2": "CD2", "distance_nm": 0.277469},
+        ],
+        "angles_13": [
+            {"atom1": "CG", "atom2": "CD1", "atom3": "CE1", "angle_deg": 119.8849},
+            {"atom1": "CG", "atom2": "CD2", "atom3": "CE2", "angle_deg": 120.0752},
+            {"atom1": "CD1", "atom2": "CE1", "atom3": "CZ", "angle_deg": 120.3013},
+            {"atom1": "CD1", "atom2": "CG", "atom3": "CD2", "angle_deg": 120.1999},
+            {"atom1": "CE1", "atom2": "CZ", "atom3": "CE2", "angle_deg": 119.989},
+            {"atom1": "CZ", "atom2": "CE2", "atom3": "CD2", "angle_deg": 119.5439},
+        ]
+    },
+    "TYR": {
+        "constraints_12": [
+            {"atom1": "CG", "atom2": "CD1", "distance_nm": 0.138401},
+            {"atom1": "CG", "atom2": "CD2", "distance_nm": 0.138874},
+            {"atom1": "CD1", "atom2": "CE1", "distance_nm": 0.138196},
+            {"atom1": "CE1", "atom2": "CZ", "distance_nm": 0.138788},
+            {"atom1": "CZ", "atom2": "CE2", "distance_nm": 0.139176},
+            {"atom1": "CE2", "atom2": "CD2", "distance_nm": 0.138755},
+        ],
+        "constraints_13": [
+            {"atom1": "CG", "atom2": "CE1", "distance_nm": 0.239785},
+            {"atom1": "CG", "atom2": "CE2", "distance_nm": 0.240443},
+            {"atom1": "CD1", "atom2": "CZ", "distance_nm": 0.239716},
+            {"atom1": "CD1", "atom2": "CD2", "distance_nm": 0.240235},
+            {"atom1": "CE1", "atom2": "CE2", "distance_nm": 0.240986},
+            {"atom1": "CZ", "atom2": "CD2", "distance_nm": 0.240202},
+        ],
+        "constraints_14": [
+            {"atom1": "CG", "atom2": "CZ", "distance_nm": 0.276946},
+            {"atom1": "CD1", "atom2": "CE2", "distance_nm": 0.277658},
+            {"atom1": "CE1", "atom2": "CD2", "distance_nm": 0.277563},
+        ],
+        "angles_13": [
+            {"atom1": "CG", "atom2": "CD1", "atom3": "CE1", "angle_deg": 120.2035},
+            {"atom1": "CG", "atom2": "CD2", "atom3": "CE2", "angle_deg": 120.0078},
+            {"atom1": "CD1", "atom2": "CE1", "atom3": "CZ", "angle_deg": 119.8692},
+            {"atom1": "CD1", "atom2": "CG", "atom3": "CD2", "angle_deg": 120.0888},
+            {"atom1": "CE1", "atom2": "CZ", "atom3": "CE2", "angle_deg": 120.2163},
+            {"atom1": "CZ", "atom2": "CE2", "atom3": "CD2", "angle_deg": 119.5941},
+        ]
+    },
+    "TRP": {
+        "six_membered": {
+            "constraints_12": [
+                {"atom1": "CD2", "atom2": "CE2", "distance_nm": 0.138788},
+                {"atom1": "CD2", "atom2": "CE3", "distance_nm": 0.138293},
+                {"atom1": "CE2", "atom2": "CZ2", "distance_nm": 0.138802},
+                {"atom1": "CZ2", "atom2": "CH2", "distance_nm": 0.13877},
+                {"atom1": "CH2", "atom2": "CZ3", "distance_nm": 0.139341},
+                {"atom1": "CZ3", "atom2": "CE3", "distance_nm": 0.138802},
+            ],
+            "constraints_13": [
+                {"atom1": "CD2", "atom2": "CZ2", "distance_nm": 0.240242},
+                {"atom1": "CD2", "atom2": "CZ3", "distance_nm": 0.239627},
+                {"atom1": "CE2", "atom2": "CH2", "distance_nm": 0.240501},
+                {"atom1": "CE2", "atom2": "CE3", "distance_nm": 0.240452},
+                {"atom1": "CZ2", "atom2": "CZ3", "distance_nm": 0.240452},
+                {"atom1": "CH2", "atom2": "CE3", "distance_nm": 0.24116},
+            ],
+            "constraints_14": [
+                {"atom1": "CD2", "atom2": "CH2", "distance_nm": 0.277512},
+                {"atom1": "CE2", "atom2": "CZ3", "distance_nm": 0.277353},
+                {"atom1": "CZ2", "atom2": "CE3", "distance_nm": 0.277923},
+            ],
+            "angles_13": [
+                {"atom1": "CD2", "atom2": "CE2", "atom3": "CZ2", "angle_deg": 119.8697},
+                {"atom1": "CD2", "atom2": "CE3", "atom3": "CZ3", "angle_deg": 119.7153},
+                {"atom1": "CE2", "atom2": "CZ2", "atom3": "CH2", "angle_deg": 120.097},
+                {"atom1": "CE2", "atom2": "CD2", "atom3": "CE3", "angle_deg": 120.4087},
+                {"atom1": "CZ2", "atom2": "CH2", "atom3": "CZ3", "angle_deg": 119.6715},
+                {"atom1": "CH2", "atom2": "CZ3", "atom3": "CE3", "angle_deg": 120.2316},
+            ]
+        },
+        "five_membered": {
+            "constraints_12": [
+                {"atom1": "CG", "atom2": "CD1", "distance_nm": 0.135092},
+                {"atom1": "CG", "atom2": "CD2", "distance_nm": 0.14521},
+                {"atom1": "CD1", "atom2": "NE1", "distance_nm": 0.13731},
+                {"atom1": "NE1", "atom2": "CE2", "distance_nm": 0.136675},
+                {"atom1": "CE2", "atom2": "CD2", "distance_nm": 0.138788},
+            ],
+            "constraints_13": [
+                {"atom1": "CG", "atom2": "NE1", "distance_nm": 0.223589},
+                {"atom1": "CG", "atom2": "CE2", "distance_nm": 0.226363},
+                {"atom1": "CD1", "atom2": "CE2", "distance_nm": 0.221572},
+                {"atom1": "CD1", "atom2": "CD2", "distance_nm": 0.224958},
+                {"atom1": "NE1", "atom2": "CD2", "distance_nm": 0.224753},
+            ],
+            "constraints_14": [],
+            "angles_13": [
+                {"atom1": "CG", "atom2": "CD1", "atom3": "NE1", "angle_deg": 110.328},
+                {"atom1": "CG", "atom2": "CD2", "atom3": "CE2", "angle_deg": 105.6778},
+                {"atom1": "CD1", "atom2": "NE1", "atom3": "CE2", "angle_deg": 107.9382},
+                {"atom1": "CD1", "atom2": "CG", "atom3": "CD2", "angle_deg": 106.6936},
+                {"atom1": "NE1", "atom2": "CE2", "atom3": "CD2", "angle_deg": 109.3529},
+            ]
+        }
+    },
+    "HIS": {
+        "constraints_12": [
+            {"atom1": "CG", "atom2": "CD2", "distance_nm": 0.135207},
+            {"atom1": "CG", "atom2": "ND1", "distance_nm": 0.138148},
+            {"atom1": "CD2", "atom2": "NE2", "distance_nm": 0.136697},
+            {"atom1": "NE2", "atom2": "CE1", "distance_nm": 0.129008},
+            {"atom1": "CE1", "atom2": "ND1", "distance_nm": 0.134503},
+        ],
+        "constraints_13": [
+            {"atom1": "CG", "atom2": "NE2", "distance_nm": 0.22309},
+            {"atom1": "CG", "atom2": "CE1", "distance_nm": 0.218874},
+            {"atom1": "CD2", "atom2": "CE1", "distance_nm": 0.212106},
+            {"atom1": "CD2", "atom2": "ND1", "distance_nm": 0.216947},
+            {"atom1": "NE2", "atom2": "ND1", "distance_nm": 0.218486},
+        ],
+        "constraints_14": [],
+        "angles_13": [
+            {"atom1": "CG", "atom2": "CD2", "atom3": "NE2", "angle_deg": 110.263},
+            {"atom1": "CG", "atom2": "ND1", "atom3": "CE1", "angle_deg": 106.7819},
+            {"atom1": "CD2", "atom2": "NE2", "atom3": "CE1", "angle_deg": 105.8958},
+            {"atom1": "CD2", "atom2": "CG", "atom3": "ND1", "angle_deg": 105.0496},
+            {"atom1": "NE2", "atom2": "CE1", "atom3": "ND1", "angle_deg": 112.003},
+        ]
+    }
+}
 
 def _find_all_instances_in_string(string, substr):
     """Find indices of all instances of substr in string"""
@@ -854,6 +1005,192 @@ class PACETopFile(object):
                 base_atom_index + atoms[4],
             )
 
+    def _add_ring_constraints(self, sys, molecule_type, base_atom_index):
+        """Add rigid triangle constraints for aromatic rings (PHE, TYR, TRP, HIS).
+        
+        Parameters
+        ----------
+        sys : mm.System
+            The OpenMM system to add constraints to
+        molecule_type : _MoleculeType
+            The molecule type containing atom information
+        base_atom_index : int
+            The base atom index for this molecule in the system
+        """
+        # Force constants:
+        # - Distance constraints (12, 13, 14): 125000 kJ/mol/nm^2
+        # - Angle constraints (13): 1000 kJ/mol/rad^2
+        RING_FORCE_CONSTANT = 125000.0  # kJ/mol/nm^2 for all distance constraints
+        RING_ANGLE_FORCE_CONSTANT = 1000.0  # kJ/mol/rad^2 for angle constraints
+        
+        # Build a mapping from (residue_number, atom_name) to atom_index
+        # molecule_type.atoms fields: [index, type, resnum, resname, atomname, ...]
+        residue_atom_map = {}  # {(resnum, resname): {atom_name: atom_index}}
+        
+        for atom_idx, fields in enumerate(molecule_type.atoms):
+            if len(fields) < 5:
+                continue
+            resnum = fields[2]
+            resname = fields[3]
+            atomname = fields[4]
+            
+            # Normalize residue name (handle replacements)
+            if resname in PDBFile._residueNameReplacements:
+                resname = PDBFile._residueNameReplacements[resname]
+            
+            # Normalize atom name (handle replacements)
+            if resname in PDBFile._atomNameReplacements:
+                atomReplacements = PDBFile._atomNameReplacements[resname]
+                if atomname in atomReplacements:
+                    atomname = atomReplacements[atomname]
+            
+            # Store mapping (use uppercase for consistency with constraint data)
+            key = (resnum, resname.upper())
+            if key not in residue_atom_map:
+                residue_atom_map[key] = {}
+            residue_atom_map[key][atomname.upper()] = base_atom_index + atom_idx
+        
+        # Ensure harmonic_bond_force exists
+        if self.harmonic_bond_force is None:
+            self.harmonic_bond_force = mm.HarmonicBondForce()
+            sys.addForce(self.harmonic_bond_force)
+        
+        # Ensure harmonic_angle_force exists for angle constraints
+        if self.harmonic_angle_force is None:
+            self.harmonic_angle_force = mm.HarmonicAngleForce()
+            sys.addForce(self.harmonic_angle_force)
+        
+        # Track existing bonds to avoid duplicates
+        existing_bonds = set()
+        for i in range(self.harmonic_bond_force.getNumBonds()):
+            bond = self.harmonic_bond_force.getBondParameters(i)
+            atom1, atom2 = bond[0], bond[1]
+            if atom1 < atom2:
+                existing_bonds.add((atom1, atom2))
+            else:
+                existing_bonds.add((atom2, atom1))
+        
+        # Track existing angles to avoid duplicates
+        existing_angles = set()
+        for i in range(self.harmonic_angle_force.getNumAngles()):
+            angle = self.harmonic_angle_force.getAngleParameters(i)
+            atom1, atom2, atom3 = angle[0], angle[1], angle[2]
+            # Store angles in canonical order (middle atom is always atom2)
+            existing_angles.add((atom1, atom2, atom3))
+        
+        # Helper function to add constraints
+        def add_constraint(constraint_list, atom_map, existing_bonds, is_bond=False):
+            """Add constraints from a constraint list
+            
+            Parameters
+            ----------
+            constraint_list : list
+                List of constraint dictionaries
+            atom_map : dict
+                Mapping from atom names to atom indices
+            existing_bonds : set
+                Set of existing bond keys to avoid duplicates
+            is_bond : bool
+                Unused parameter (kept for compatibility), all constraints use same force constant
+            """
+            force_constant = RING_FORCE_CONSTANT
+            for constraint in constraint_list:
+                atom1_name = constraint["atom1"].upper()
+                atom2_name = constraint["atom2"].upper()
+                distance_nm = constraint["distance_nm"]
+                
+                if atom1_name in atom_map and atom2_name in atom_map:
+                    atom1_idx = atom_map[atom1_name]
+                    atom2_idx = atom_map[atom2_name]
+                    
+                    # Avoid duplicates
+                    bond_key = (min(atom1_idx, atom2_idx), max(atom1_idx, atom2_idx))
+                    if bond_key not in existing_bonds:
+                        self.harmonic_bond_force.addBond(
+                            atom1_idx,
+                            atom2_idx,
+                            distance_nm * unit.nanometer,
+                            force_constant * unit.kilojoule_per_mole / unit.nanometer**2
+                        )
+                        existing_bonds.add(bond_key)
+        
+        # Helper function to add angle constraints
+        def add_angle_constraint(angle_list, atom_map, existing_angles):
+            """Add angle constraints from an angle list
+            
+            Parameters
+            ----------
+            angle_list : list
+                List of angle dictionaries with atom1, atom2, atom3, angle_deg
+            atom_map : dict
+                Mapping from atom names to atom indices
+            existing_angles : set
+                Set of existing angle tuples to avoid duplicates
+            """
+            degToRad = math.pi / 180.0
+            for angle_constraint in angle_list:
+                atom1_name = angle_constraint["atom1"].upper()
+                atom2_name = angle_constraint["atom2"].upper()
+                atom3_name = angle_constraint["atom3"].upper()
+                angle_deg = angle_constraint["angle_deg"]
+                
+                if atom1_name in atom_map and atom2_name in atom_map and atom3_name in atom_map:
+                    atom1_idx = atom_map[atom1_name]
+                    atom2_idx = atom_map[atom2_name]
+                    atom3_idx = atom_map[atom3_name]
+                    
+                    # Avoid duplicates
+                    angle_key = (atom1_idx, atom2_idx, atom3_idx)
+                    if angle_key not in existing_angles:
+                        angle_rad = angle_deg * degToRad
+                        self.harmonic_angle_force.addAngle(
+                            atom1_idx,
+                            atom2_idx,
+                            atom3_idx,
+                            angle_rad,
+                            RING_ANGLE_FORCE_CONSTANT * unit.kilojoule_per_mole / unit.radian**2
+                        )
+                        existing_angles.add(angle_key)
+        
+        # Process each residue
+        for (resnum, resname), atom_map in residue_atom_map.items():
+            # Only process aromatic residues (resname is already uppercase)
+            if resname not in RING_CONSTRAINTS:
+                continue
+            
+            constraints = RING_CONSTRAINTS[resname]
+            
+            # Handle TRP special structure (six_membered and five_membered rings)
+            if resname == "TRP":
+                # Process six-membered ring
+                if "six_membered" in constraints:
+                    six_membered = constraints["six_membered"]
+                    add_constraint(six_membered.get("constraints_12", []), atom_map, existing_bonds, is_bond=True)
+                    add_constraint(six_membered.get("constraints_13", []), atom_map, existing_bonds, is_bond=False)
+                    add_constraint(six_membered.get("constraints_14", []), atom_map, existing_bonds, is_bond=False)
+                    add_angle_constraint(six_membered.get("angles_13", []), atom_map, existing_angles)
+                
+                # Process five-membered ring
+                if "five_membered" in constraints:
+                    five_membered = constraints["five_membered"]
+                    add_constraint(five_membered.get("constraints_12", []), atom_map, existing_bonds, is_bond=True)
+                    add_constraint(five_membered.get("constraints_13", []), atom_map, existing_bonds, is_bond=False)
+                    add_constraint(five_membered.get("constraints_14", []), atom_map, existing_bonds, is_bond=False)
+                    add_angle_constraint(five_membered.get("angles_13", []), atom_map, existing_angles)
+            else:
+                # Handle PHE, TYR, HIS
+                # Add 1-2 constraints (ring bonds)
+                add_constraint(constraints.get("constraints_12", []), atom_map, existing_bonds, is_bond=True)
+                
+                # Add 1-3 constraints
+                add_constraint(constraints.get("constraints_13", []), atom_map, existing_bonds, is_bond=False)
+                
+                # Add 1-4 constraints
+                add_constraint(constraints.get("constraints_14", []), atom_map, existing_bonds, is_bond=False)
+                
+                # Add angle constraints
+                add_angle_constraint(constraints.get("angles_13", []), atom_map, existing_angles)
+
     def _set_nonbonded_parameters(
         self,
         molecule_type,
@@ -1018,29 +1355,8 @@ class PACETopFile(object):
         nonbonded_cutoff=1.1 * unit.nanometer,
         remove_com_motion=True,
         add_nonbonded_force=True,
-    ):
-        """Construct an OpenMM System representing the topology described by this
-        top file.
-
-        Parameters
-        ----------
-        nonbonded_cutoff : distance=1*nanometer
-            The cutoff distance to use for nonbonded interactions
-        remove_com_motion : boolean=True
-            If true, a CMMotionRemover will be added to the System
-        add_nonbonded_force : boolean=True
-            If true, nonbonded forces (LJ and electrostatic) will be added to the System
-        Returns
-        -------
-        System
-             the newly created System
-        """
-    def create_system(
-        self,
-        nonbonded_cutoff=1.1 * unit.nanometer,
-        remove_com_motion=True,
-        add_nonbonded_force=True,
         nonbonded_type="standard",
+        add_ring_constraints=False,
     ):
         """Construct an OpenMM System representing the topology described by this
         top file.
@@ -1058,6 +1374,9 @@ class PACETopFile(object):
             - "standard": Original Martini nonbonded force with LJ and electrostatics
             - "gaussian": Gaussian "Bulldozer" Force for initial untangling
             - "softcore": Gapsys Soft-Core Force for smooth potential energy landscapes
+        add_ring_constraints : boolean=False
+            If true, add rigid triangle constraints for aromatic rings (PHE, TYR, TRP).
+            Default is False. Typically enabled only in final optimization steps.
         Returns
         -------
         System
@@ -1084,9 +1403,9 @@ class PACETopFile(object):
                 "ga_k * ga_h * exp(-(r/ga_w)^2);"
             )
             # Global parameters (can be tuned in Context)
-            self.nb_force.addGlobalParameter("ga_k", 1.0)    # ON/OFF switch
-            self.nb_force.addGlobalParameter("ga_h", 100.0)  # Height (kJ/mol)
-            self.nb_force.addGlobalParameter("ga_w", 0.1)    # Width (nm)
+            self.nb_force.addGlobalParameter("ga_k", 1.0)     # ON/OFF switch
+            self.nb_force.addGlobalParameter("ga_h", 800.0)   # Height (kJ/mol)
+            self.nb_force.addGlobalParameter("ga_w", 0.14)    # Width (nm) - 1.4 Å
             
             # Dummy parameters to match the addParticle signature in _set_nonbonded_parameters
             # _set_nonbonded_parameters calls addParticle([atomType, q])
@@ -1340,6 +1659,10 @@ class PACETopFile(object):
                     sys.addConstraint(
                         base_atom_index + atoms[0], base_atom_index + atoms[1], length
                     )
+                
+                # Add ring constraints for aromatic residues if enabled
+                if add_ring_constraints:
+                    self._add_ring_constraints(sys, molecule_type, base_atom_index)
 
         if all_exceptions:
             # build a map of unique exceptions
@@ -1448,13 +1771,13 @@ def _get_default_gromacs_include_dir():
             os.path.join(os.environ["GMXBIN"], "..", "share", "gromacs", "top")
         )
 
-    pdb2gmx_path = distutils.spawn.find_executable("pdb2gmx")
+    pdb2gmx_path = shutil.which("pdb2gmx")
     if pdb2gmx_path is not None:
         return os.path.abspath(
             os.path.join(os.path.dirname(pdb2gmx_path), "..", "share", "gromacs", "top")
         )
     else:
-        gmx_path = distutils.spawn.find_executable("gmx")
+        gmx_path = shutil.which("gmx")
         if gmx_path is not None:
             return os.path.abspath(
                 os.path.join(os.path.dirname(gmx_path), "..", "share", "gromacs", "top")

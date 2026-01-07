@@ -1,0 +1,32 @@
+; Include forcefield parameters
+#include "pace-new.ff/forcefield.itp"
+
+{molecule 1}
+{molecule 2}
+...
+...
+{molecule n}
+
+; Include water topology
+#include "pace-new.ff/cgWater.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "pace-new.ff/ions.itp"
+
+[ system ]
+; Name
+Protein
+
+[ molecules ]
+; Compound        #mols
+{name 1}        {n_molecules 1 }
+...
+....
+{name n}        {n_molecules n}

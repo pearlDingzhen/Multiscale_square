@@ -54,6 +54,12 @@ from .backmap import (
     standardize_pdb_with_calvados,
 )
 
+from .pace_opt import (
+    PaceOptSimulator,
+    PaceOptConfig,
+    PaceOptResult,
+)
+
 __all__ = [
     # Configuration
     'CGSimulationConfig',
@@ -85,4 +91,9 @@ __all__ = [
     'PreparedInput',
     'SourceType',
     'standardize_pdb_with_calvados',
+    
+    # PACE optimization
+    'PaceOptSimulator',
+    'PaceOptConfig',
+    'PaceOptResult',
 ]
